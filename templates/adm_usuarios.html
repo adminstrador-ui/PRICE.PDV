@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Usuários - Administração</title>
+    
+    <!-- LINK DE RESERVA CASO HAJA INTERNET -->
+    <link href="https://jsdelivr.net" rel="stylesheet">
+
+    <!-- ESTILIZAÇÃO COMPLETA EMBUTIDA (NÃO DEPENDE DE INTERNET) -->
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header-painel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+        .header-painel h2 { margin: 0; font-size: 24px; color: #2d3748; }
+        .header-painel span { color: #3182ce; }
+        
+        /* Cartões */
+        .card-sistema { background: #fff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 25px; border: 1px solid #e2e8f0; }
+        .card-title { font-size: 18px; font-weight: 600; margin-top: 0; margin-bottom: 20px; color: #2d3748; display: flex; align-items: center; gap: 8px; }
+        
+        /* Grid de Formulário */
+        .row-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 13px; font-weight: 600; color: #718096; margin-bottom: 6px; text-uppercase: uppercase; }
+        .form-input, .form-select { padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; background-color: #fff; transition: border 0.2s; }
+        .form-input:focus, .form-select:focus { border-color: #3182ce; outline: none; }
+        .form-select:disabled { background-color: #edf2f7; color: #a0aec0; cursor: not-allowed; }
+        
+        /* Botões */
+        .btn-sistema { padding: 11px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s; }
+        .btn-primary-sis { background-color: #3182ce; color: #fff; width: 100%; }
+        .btn-primary-sis:hover { background-color: #2b6cb0; }
+        .btn-outline-sis { background-color: transparent; border: 1px solid #cbd5e0; color: #4a5568; }
+        .btn-outline-sis:hover { background-color: #edf2f7; }
+        .btn-table { padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 4px; }
+        .btn-edit { background-color: #e2e8f0; color: #2d3748; }
+        .btn-edit:hover { background-color: #cbd5e0; }
+        .btn-block { background-color: #feebc8; color: #c05621; }
+        .btn-block:hover { background-color: #fbd38d; }
+        .btn-unblock { background-color: #c6f6d5; color: #22543d; }
+        .btn-unblock:hover { background-color: #9ae6b4; }
+        .btn-delete { background-color: #fed7d7; color: #9b2c2c; }
+        .btn-delete:hover { background-color: #feb2b2; }
+
+        /* Tabelas */
+        .table-responsive { width: 100%; overflow-x: auto; }
+        .table-sistema { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        .table-sistema th { background-color: #f7fafc; padding: 12px 16px; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 12px; }
+        .table-sistema td { padding: 14px 16px; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
+        .table-sistema tr:hover { background-color: #f7fafc; }
+        
+        /* Badges/Etiquetas */
+        .badge-sis { display: inline-block; padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; text-transform: uppercase; }
+        .badge-admin { background-color: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+        .badge-user { background-color: #f7fafc; color: #4a5568; border: 1px solid #e2e8f0; }
+        .badge-ativo { background-color: #c6f6d5; color: #22543d; }
+        .badge-bloqueado { background-color: #fed7d7; color: #9b2c2c; }
+        .badge-limite { background-color: #edf2f7; color: #4a5568; }
+
+        /* Alertas Flash */
+        .alert-sis { padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; font-weight: 500; }
+        .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .alert-danger { background-color: #fed7d7; color: #9b2c2c; border: 1px solid #feb2b2; }
+
+        /* Estilo da Janela Modal Flutuante Oculta */
+        .modal-back { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-cont { background: #fff; padding: 24px; border-radius: 8px; width: 100%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 18px; font-weight: 600; color: #2d3748; }
+        .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #a0aec0; }
+        .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Cabeçalho Principal -->
+    <div class="header-painel">
+        <h2>Gestão de Usuários - <span>Administração</span></h2>
+        <a href="/" class="btn-sistema btn-outline-sis">← Voltar ao Painel</a>
+    </div>
+
+    <!-- Exibição de Mensagens do Flask -->
+    {% with messages = get_flashed_messages(with_categories=true) %} 
+      {% if messages %} 
+        {% for cat, msg in messages %}
+          <div class="alert-sis alert-{{ 'success' if cat == 'success' else 'danger' }}">
+            {{ msg }}
+          </div>
+        {% endfor %} 
+      {% endif %} 
+    {% endwith %} 
+
+    <!-- Formulário de Cadastro Moderno -->
+    <div class="card-sistema">
+        <div class="card-title">👤 Cadastrar Novo Operador no Banco</div>
+        <form action="/admin/usuarios/cadastrar" method="POST">
+            <div class="row-grid">
+                <div class="form-group">
+                    <label>Nome de Usuário</label>
+                    <input type="text" name="usuario" placeholder="Ex: bruno" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Senha de Acesso</label>
+                    <input type="password" name="senha" placeholder="********" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Qtd. Máxima de Requisições</label>
+                    <input type="number" name="limite_maximo" value="100" min="1" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Perfil de Permissão</label>
+                    <select name="perfil" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+   			 <option value="USER">USER (Operador Comum)</option>
+   			 <option value="ADMIN">ADMIN (Administrador)</option>
+		    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-sistema btn-primary-sis">💾 Gravar Usuário</button>
+        </form>
+    </div>
+
+    <!-- Tabela Limpa de Operadores Ativos -->
+    <div class="card-sistema">
+        <div class="card-title">📋 Operadores Ativos no Sistema</div>
+        <div class="table-responsive">
+            <table class="table-sistema">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuário</th>
+                        <th>Nível Perfil</th>
+                        <th>Limite Req.</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for user in usuarios %}
+<tr>
+    <td style="color: #718096; font-weight: 500;">#{{ user.ID }}</td> <!-- ID -->
+    <td style="font-weight: 600; color: #2d3748;">{{ user.NOME }}</td> <!-- USUÁRIO -->
+    <td>
+        <span class="badge-sis {{ 'badge-admin' if user.NOME.lower() == 'admin' else 'badge-user' }}">
+            {{ 'ADMIN' if user.NOME.lower() == 'admin' else 'USER' }}
+        </span>
+    </td>
+    <td>
+        <!-- 🌟 AGORA VAI EXIBIR PERFEITAMENTE: Mostra o consumo atual e a quantidade limite cadastrada -->
+        <span class="badge-sis badge-limite" style="background-color: #edf2f7; color: #4a5568; padding: 4px 8px; border-radius: 4px; font-weight: 600;">
+            {{ user.LIMITE_MAXIMO }} 
+        </span>
+    </td>
+    <td>
+        <!-- Status baseado na coluna ATIVO (1 para Ativo, 0 para Bloqueado) -->
+        {% if user.ATIVO == 1 %}
+            <span class="badge-sis badge-ativo">● Ativo</span>
+        {% else %}
+            <span class="badge-sis badge-bloqueado">● Bloqueado</span>
+        {% endif %}
+    </td>
+    <td>
+        <div style="display: flex; gap: 8px;">
+            {% if user.NOME.lower() != 'admin' %}
+                <!-- Botão de Editar preenchendo o modal corretamente via JS -->
+                <button type="button" class="btn-sistema btn-table btn-edit" 
+                        onclick="abrirModalEdicaoUsuario('{{ user.ID }}', '{{ user.NOME }}', '{{ user.LIMITE_MAXIMO }}')">
+                    ✏️ Editar
+                </button>
+
+                <a href="/admin/usuarios/bloquear/{{ user.ID }}" 
+                   class="btn-sistema btn-table {{ 'btn-block' if user.ATIVO == 1 else 'btn-unblock' }}">
+                    {{ '🔒 Bloquear' if user.ATIVO == 1 else '🔓 Desbloquear' }}
+                </a>
+                
+                <a href="/admin/usuarios/deletar/{{ user.ID }}" 
+                   class="btn-sistema btn-table btn-delete" 
+                   onclick="return confirm('Deseja excluir permanentemente o operador {{ user.NOME }}?')">
+                    🗑️ Excluir
+                </a>
+            {% else %}
+                <span style="color: #a0aec0; font-size: 13px; font-style: italic;">Conta Master Protegida</span>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% endfor %}
+
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div> <!-- Fecha a div container principal -->
+
+<!-- ✏️ JANELA FLUTUANTE DE ALTERAÇÃO (MODAL DE EDIÇÃO) -->
+<div class="modal-back" id="modalEditarUsuario">
+    <div class="modal-cont">
+        <div class="modal-head">
+            <div>✏️ Modificar Dados do Operador</div>
+            <button type="button" class="modal-close" onclick="fecharModalUsuario()">×</button>
+        </div>
+        <form action="/admin/usuarios/editar" method="POST">
+            <!-- Campo oculto para persistência do ID no Oracle -->
+            <input type="hidden" name="id" id="edit-user-id">
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Nome de Usuário</label>
+                <input type="text" name="usuario" id="edit-user-nome" class="form-input" required>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Alterar Senha de Acesso</label>
+                <input type="password" name="senha" class="form-input" placeholder="Deixe em branco para manter a atual">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Qtd. Máxima de Requisições</label>
+                <input type="number" name="limite_maximo" id="edit-user-limite" class="form-input" required min="1">
+            </div>
+            
+            <div class="modal-foot">
+                <button type="button" class="btn-sistema btn-outline-sis" onclick="fecharModalUsuario()">Cancelar</button>
+                <button type="submit" class="btn-sistema btn-primary-sis" style="width: auto;">Salvar Alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ⚙️ FUNÇÕES JAVASCRIPT DE CONTROLE DO PAINEL -->
+<script>
+function abrirModalEdicaoUsuario(id, nome, limite) {
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-user-nome').value = nome;
+    document.getElementById('edit-user-limite').value = limite;
+    document.getElementById('modalEditarUsuario').style.display = 'flex';
+}
+
+function fecharModalUsuario() {
+    document.getElementById('modalEditarUsuario').style.display = 'none';
+}
+
+// Fecha o modal de forma segura caso o administrador clique fora da caixa branca
+window.onclick = function(event) {
+    var modal = document.getElementById('modalEditarUsuario');
+    if (event.target == modal) {
+        fecharModalUsuario();
+    }
+}
+</script>
+
+</body>
+</html>

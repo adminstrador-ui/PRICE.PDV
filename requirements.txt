@@ -1,0 +1,6 @@
+flask
+flask
+oracledb
+pandas
+werkzeug
+gunicorn
