@@ -1,40 +1,84 @@
 import os
-import psycopg2  # 🌟 Trocado: oracledb por psycopg2
-from psycopg2 import extras  # Auxiliar para ler colunas por nome
+import time
+import warnings
+import psycopg2
+from psycopg2 import pool
+from psycopg2.extras import RealDictCursor
 import pandas as pd
+from io import BytesIO
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "chave_secreta_aqui"
 
-# 🌟 CONFIGURAÇÕES DA SUA NOVA BASE POSTGRESQL NA HOSTINGER
+# ==============================================================================
+# CONFIGURAÇÕES DE SEGURANÇA E SESSÃO
+# ==============================================================================
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_altamente_segura_aqui_123987")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=False,  # Mude para True se utilizar HTTPS (ex: Render)
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=2)
+)
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+# ==============================================================================
+# POOL DE CONEXÕES POSTGRESQL (HOSTINGER)
+# ==============================================================================
 DB_HOST = "179.199.138.119"
 DB_NAME = "Minhabase"
 DB_USER = "ramonn"
 DB_PASS = "Synk2709@VPS"
 DB_PORT = "5432"
 
-# 🌟 FUNÇÃO QUE CRIA A ESTRUTURA DO ZERO ABSOLUTO NO POSTGRESQL
+try:
+    db_pool = pool.SimpleConnectionPool(
+        1, 10,
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASS,
+        port=DB_PORT
+    )
+    print("🎯 Pool de conexões do PostgreSQL estabelecido com sucesso!")
+except Exception as e:
+    print(f"❌ Erro crítico ao criar Pool de conexões: {e}")
+    db_pool = None
+
+class GerenciadorConexao:
+    """Context Manager para obter e devolver conexões ao pool automaticamente."""
+    def __init__(self):
+        self.conn = None
+    def __enter__(self):
+        if not db_pool:
+            raise Exception("Pool de conexões com o banco de dados não está disponível.")
+        self.conn = db_pool.getconn()
+        return self.conn
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.conn:
+            db_pool.putconn(self.conn)
+
 def inicializar_banco_do_zero():
+    """Garante a integridade física das tabelas no banco PostgreSQL ao subir o app."""
     try:
-        with psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS, port=DB_PORT) as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
-                # 1. Tabela de Cidades
+                # 1. Cidades
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS cidades_sistema (
                         id SERIAL PRIMARY KEY,
                         cidade VARCHAR(100) NOT NULL UNIQUE
                     );
                 """)
-                # Insere algumas cidades padrão se a tabela estiver vazia
                 cur.execute("SELECT COUNT(*) FROM cidades_sistema;")
                 if cur.fetchone()[0] == 0:
                     cidades_padrao = [("Salvador",), ("Feira de Santana",), ("Porto Seguro",)]
                     cur.executemany("INSERT INTO cidades_sistema (cidade) VALUES (%s);", cidades_padrao)
 
-                # 2. Tabela de Usuários
+                # 2. Usuários
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS usuario (
                         id SERIAL PRIMARY KEY,
@@ -46,7 +90,6 @@ def inicializar_banco_do_zero():
                         perfil VARCHAR(20) DEFAULT 'USER'
                     );
                 """)
-                # Garante que o usuário admin exista inicialmente (senha padrão: admin123)
                 cur.execute("SELECT COUNT(*) FROM usuario WHERE LOWER(nome) = 'admin';")
                 if cur.fetchone()[0] == 0:
                     senha_admin = generate_password_hash("admin123")
@@ -55,7 +98,7 @@ def inicializar_banco_do_zero():
                         VALUES ('admin', %s, 9999, 0, 1, 'ADMIN');
                     """, (senha_admin,))
 
-                # 3. Tabela Principal de Dados
+                # 3. Dados (Pai)
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS dados (
                         id SERIAL PRIMARY KEY,
@@ -69,7 +112,7 @@ def inicializar_banco_do_zero():
                     );
                 """)
 
-                # 4. Tabela de Concorrentes (Relacionada à tabela dados)
+                # 4. Concorrentes (Filhos)
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS dados_concorrentes (
                         id SERIAL PRIMARY KEY,
@@ -78,206 +121,400 @@ def inicializar_banco_do_zero():
                     );
                 """)
             conn.commit()
-            print("🚀 Estrutura verificada/criada com sucesso no PostgreSQL!")
+            print("🚀 Tabelas verificadas/sincronizadas com êxito total.")
     except Exception as e:
-        print(f"⚠️ Erro crítico ao criar estrutura inicial: {e}")
+        print(f"⚠️ Falha na rotina inicializadora de tabelas: {e}")
 
-# Executa a criação assim que o app inicia
+# Executa a verificação na inicialização do script
 inicializar_banco_do_zero()
 
-# 🌟 FUNÇÃO DE CONEXÃO ATUALIZADA PARA POSTGRESQL
-def obter_conn():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASS,
-        port=DB_PORT
-    )
-
+# ==============================================================================
+# FUNÇÕES AUXILIARES DE SUPORTE
+# ==============================================================================
 def ean_valido(ean):
-    ean_limpo = str(ean).strip()
-    return ean_limpo.isdigit() and len(ean_limpo) in [8, 13]  # 🌟 Correção realizada aqui
+    return len(str(ean).strip()) > 0
 
 def buscar_cidades_banco():
     cidades = []
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT cidade FROM cidades_sistema ORDER BY cidade ASC')
                 cidades = [str(row[0]).strip() for row in cur.fetchall() if row and row[0]]
     except Exception as e:
-        print(f"Erro ao buscar cidades: {e}")
+        print(f"[LOG] Erro ao carregar cidades do banco: {e}")
         cidades = ["Salvador (Reserva)", "Feira de Santana (Reserva)", "Porto Seguro (Reserva)"]
     return cidades
 
-@app.route("/")
-@app.route("/cadastro")
+
+@app.route("/", methods=['GET', 'POST'])
 def index():
+    # 1. PROCESSA A TENTATIVA DE LOGIN INTEGRADA À SUA TABELA 'usuario'
+    if request.method == 'POST' and "usuario_logado" not in session:
+        usuario_input = request.form.get("usuario", "").strip()
+        senha_input = request.form.get("senha", "").strip()
+        
+        try:
+            from werkzeug.security import check_password_hash
+            
+            with GerenciadorConexao() as conn:
+                with conn.cursor() as cur:
+                    # CONSULTA ESPELHADA: Adicionado a coluna 'perfil' na busca do SQL (Índice 3)
+                    cur.execute("SELECT id, nome, senha, perfil FROM usuario WHERE LOWER(nome) = %s", (usuario_input.lower(),))
+                    usuario_banco = cur.fetchone()
+                    
+                    if usuario_banco:
+                        # MAPEAMENTO CORRETO DA TUPLA DO POSTGRESQL:
+                        id_usuario_db = usuario_banco[0]
+                        nome_usuario_db = usuario_banco[1]
+                        senha_db = str(usuario_banco[2]).strip()
+                        perfil_db = str(usuario_banco[3]).strip().upper() if usuario_banco[3] else "USER"
+                        
+                        # SISTEMA DE VALIDAÇÃO DUPLO:
+                        eh_valido = False
+                        if senha_db.startswith("scrypt:"):
+                            eh_valido = check_password_hash(senha_db, senha_input)
+                        else:
+                            eh_valido = (senha_input == senha_db)
+                        
+                        if eh_valido:
+                            session.clear()
+                            session["usuario_logado"] = nome_usuario_db
+                            session["usuario_id"] = id_usuario_db
+                            session["perfil_logado"] = perfil_db  # Define o perfil real vindo do banco
+
+                            
+                            return redirect(url_for("index"))
+            
+        except Exception as err_login:
+            print(f"❌ Erro crítico ao validar credenciais no banco: {err_login}")
+            from flask import flash
+            flash("Falha interna ao conectar na base de usuários.", "danger")
+            return render_template("index.html", tela="login")
+
+    # 2. BLOQUEIO DE SEGURANÇA: Se não enviou formulário e não está logado, barra o acesso
     if "usuario_logado" not in session: 
         return render_template("index.html", tela="login")
-    
-    usr = session["usuario_logado"]
-    perf = session.get("perfil_logado")
+
+
+    # 3. CONTINUAÇÃO DO PAINEL (Lógica original de leitura de tarefas, métricas e cidades)
     busca = request.args.get("q", "").strip().lower()
-    f_st = request.args.get("status", "").strip().lower()
-    
+    metrics = {"total": 0, "pendentes": 0, "andamento": 0, "concluidas": 0}
     tarefas = []
-    met = {"total": 0, "pendentes": 0, "andamento": 0, "concluidas": 0}
-    lista_cidades = buscar_cidades_banco()
     
+    # ... O restante do seu código do painel (Bloco 1 de cidades e Bloco 2 de tarefas) continua igual aqui embaixo ...
+
+    
+    cidades_opcoes = ["Itamaraju", "Itabela", "Eunápolis", "Teixeira de Freitas"]
+
+    # Bloco 1: Tenta buscar as cidades dinamicamente da tabela cidades_sistema
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
-                wh = "WHERE 1=1" if perf == "ADMIN" else "WHERE d.usuario_dono = %s"
-                query = f"""
-                    SELECT d.id, d.codigo_barras, d.cidade, d.status, 
-                           TO_CHAR(d.proxima_pesquisa,'DD/MM/YYYY') as prox_pesquisa_format, d.dias, 
-                           (SELECT string_agg(c.ean_concorrente, ', ' ORDER BY c.id) 
-                            FROM dados_concorrentes c WHERE c.dados_id = d.id) as concorrentes, 
-                           d.proxima_pesquisa, TO_CHAR(d.data_cadastro,'DD/MM/YYYY HH24:MI') as cadastro_format
-                    FROM dados d {wh} 
-                    ORDER BY d.id DESC 
-                    LIMIT 100
-                """
-                cur.execute(query, () if perf == "ADMIN" else (usr,))
-                hj = datetime.now().date()
+                cur.execute("SELECT cidade FROM cidades_sistema ORDER BY cidade ASC")
+                rows_cidades = cur.fetchall()
                 
-                for r in cur.fetchall():
-                    t_id, t_cb, t_cid, t_st = r[0], r[1], r[2], r[3] or "Pendente"
-                    t_pr_s, t_di, e_s, t_pr_r, t_cd = r[4], r[5], r[6] or "", r[7], r[8]  # 🌟 Evita erro de split em nulos
-                    
-                    le = [e.strip() for e in e_s.split(",") if e.strip()] if e_s else []
+                if rows_cidades:
+                    cidades_opcoes = [str(r[0]).strip() for r in rows_cidades if r and r[0] is not None]
+                    # print(f"✅ Cidades carregadas com sucesso do banco: {cidades_opcoes}")
+                else:
+                    print("⚠️ A tabela cidades_sistema retornou vazia. Usando lista padrão.")
+    except Exception as err_cidades:
+        print(f"❌ Erro ao buscar cidades_sistema no banco: {err_cidades}")
 
-                    t_pr_r_date = t_pr_r.date() if isinstance(t_pr_r, datetime) else t_pr_r
-                    dr = max(0, (t_pr_r_date - hj).days) if t_pr_r else t_di
-
-                    if t_di == 9999:
-                        t_re = 9999
-                        if t_st == "Pendente": t_st = "Em Andamento"
-                    else:
-                        if t_di > 1 and t_st.strip().lower() == "pendente": 
-                            t_re = 1
-                        elif t_di > 1:
-                            t_st = "Em Andamento"
-                            t_re = max(0, t_di - max(0, t_di - dr))
-                            if t_re == 0: t_st = "Concluída"
-                        else:
-                            t_re = dr
-                            if t_re == 0: t_st = "Concluída"
-                    
-                    met["total"] += 1
-                    if t_st == "Pendente": met["pendentes"] += 1
-                    elif t_st == "Em Andamento": met["andamento"] += 1
-                    elif t_st == "Concluída": met["concluidas"] += 1
-                    
-                    if busca and (busca not in str(t_cb).lower() and busca not in str(t_cid).lower()): continue
-                    if f_st and f_st != t_st.lower(): continue
-                    
-                    tarefas.append([t_id, t_cb, t_cid, t_st, t_pr_s, t_re, t_di, le, t_cd, e_s])
-                    
-    except Exception as e: 
-        print(f"⚠️ Falha de execução na rota principal: {e}")
-        flash("Sincronização parcial com o banco de dados. Recarregue a página.", "danger")
+        # Bloco 2: Busca as requisições principais para listar na tabela
+    try:
+        usuario_ativo = session.get("usuario_logado")
+        # Captura o perfil salvo na sessão (corrigido na rota de login)
+        perfil_ativo = session.get("perfil_logado", "USER") 
         
-    return render_template("index.html", tela="painel", cidades_opcoes=lista_cidades, tarefas=tarefas[:50], metrics=met, q=busca, status_sel=f_st)
+        with GerenciadorConexao() as conn:
+            with conn.cursor() as cur:
+                # REGRA ALTERADA: Qualquer um com perfil ADMIN vê tudo da base de dados
+                if perfil_ativo == 'ADMIN':
+                    cur.execute(
+                        "SELECT id, codigo_barras, cidade, status, data_cadastro, dias FROM dados ORDER BY id DESC"
+                    )
+                else:
+                    cur.execute(
+                        """SELECT id, codigo_barras, cidade, status, data_cadastro, dias 
+                           FROM dados 
+                           WHERE LOWER(usuario_dono) = %s 
+                           ORDER BY id DESC""", 
+                        (usuario_ativo.lower() if usuario_ativo else '',)
+                    )
+
+                    
+                rows = cur.fetchall()
+                
+                for row in rows:
+                    id_real = int(row[0])
+                    ean_real = row[1]
+                    cidade_real = row[2]
+                    status_real = str(row[3]).strip()
+                    data_real = row[4].strftime("%d/%m/%Y %H:%M") if hasattr(row[4], "strftime") else str(row[4])
+                    dias_real = row[5] if len(row) > 5 else 1
+
+                    item_tarefa = [
+                        id_real,            
+                        ean_real,           
+                        "Sem concorrentes", 
+                        cidade_real,        
+                        status_real,        
+                        data_real,          
+                        dias_real,          
+                        "", ""              
+                    ]
+                    
+                    if busca:
+                        if (busca in str(ean_real).lower()) or (busca in str(cidade_real).lower()):
+                            tarefas.append(item_tarefa)
+                    else:
+                        tarefas.append(item_tarefa)
+
+                    # Contagem das métricas baseada estritamente no universo visível do usuário
+                    metrics["total"] += 1
+                    if "concluid" in status_real.lower() or "processado" in status_real.lower():
+                        metrics["concluidas"] += 1
+                    elif "andamento" in status_real.lower():
+                        metrics["andamento"] += 1
+                    else:
+                        metrics["pendentes"] += 1
+                        
+    except Exception as e:
+        print(f"❌ Erro crítico na leitura filtrada da tabela dados: {e}")
+        metrics = {"total": 0, "pendentes": 0, "andamento": 0, "concluidas": 0}
+
+    return render_template("index.html", tela="painel", tarefas=tarefas, metrics=metrics, cidades_opcoes=cidades_opcoes, q=busca)
 
 
 @app.route("/cadastrar", methods=["POST"])
-def cadastrar_requisicao():
-    if "usuario_logado" not in session: 
+def cadastrar_requisicao_unica():
+    if "usuario_logado" not in session:
         return redirect(url_for('index'))
-    
+        
     usr_dono = session["usuario_logado"]
-    
-    try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute('SELECT limite_maximo FROM usuario WHERE LOWER(nome) = %s', (usr_dono.lower(),))
-                res_user = cur.fetchone()
-                limite_maximo = res_user[0] if res_user else 100
-                
-                cur.execute('SELECT COUNT(*) FROM dados WHERE usuario_dono = %s', (usr_dono,))
-                res_count = cur.fetchone()
-                total_atual = res_count[0] if res_count else 0
-                
-                if total_atual >= limite_maximo:
-                    flash(f"⚠️ Limite atingido! Seu usuário permite apenas {limite_maximo} requisições.", "danger")
-                    return redirect(url_for("index"))
-    except Exception as e:
-        flash(f"Erro ao validar limites no banco: {e}", "danger")
-        return redirect(url_for("index"))
-
     cb = request.form.get("codigo_barras", "").strip()
     cid = request.form.get("cidade", "Não Informada").strip()
-    dias = request.form.get("dias_pesquisa")
+    dias_input = request.form.get("dias_pesquisa", "1")
     
-    if not ean_valido(cb):
-        flash("O Código de Barras (EAN) principal é inválido! Deve conter 8 ou 13 dígitos numéricos.", "danger")
+    if not cb:
+        flash("O Código de Barras (EAN) principal é obrigatório!", "danger")
         return redirect(url_for("index"))
         
-    dn = int(dias) if dias and dias.isdigit() else 9999
-    eans_brutos = request.form.getlist("eans_concorrentes[]")
-    eans = [e.strip() for e in eans_brutos if ean_valido(e)]
-   
-    # ... continuação da rota /cadastrar ...
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
-                px = datetime.now() + timedelta(days=(365*10 if dn == 9999 else dn))
+                                # -------------------------------------------------------------
+                # VALIDAÇÃO DE LIMITE COOPERAÇÃO COM O BANCO
+                # -------------------------------------------------------------
+                # 1. Puxa o limite do usuário ativo
+                cur.execute("SELECT limite_maximo FROM usuario WHERE LOWER(nome) = %s", (usr_dono.lower(),))
+                res_usuario = cur.fetchone()
+                limite_permitido = res_usuario[0] if res_usuario else 100
                 
-                cur.execute("""
-                    INSERT INTO dados (codigo_barras, cidade, status, proxima_pesquisa, dias, data_cadastro, usuario_dono)
-                    VALUES (%s, %s, 'Pendente', %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id
-                """, (cb, cid, px.date(), dn, usr_dono))
+                # CORREÇÃO CRUCIAL: Agora qualquer usuário com perfil ADMIN ganha passe livre absoluto
+                if session.get("perfil_logado") != "ADMIN":
+                    # 2. Conta quantas requisições este usuário já tem cadastradas na tabela dados
+                    cur.execute("SELECT COUNT(*) FROM dados WHERE LOWER(usuario_dono) = %s", (usr_dono.lower(),))
+                    qtd_cadastrada = cur.fetchone()[0]
+                    
+                    # 3. Bloqueia a inserção se o limite já foi alcançado
+                    if qtd_cadastrada >= limite_permitido:
+                        flash(f"Falha ao cadastrar: Você atingiu o seu limite máximo permitido de {limite_permitido} requisições!", "danger")
+                        return redirect(url_for("index"))
+                # -------------------------------------------------------------
+
+                try:
+                    dias = int(dias_input) if dias_input.strip() and dias_input.isdigit() else 1
+                except:
+                    dias = 1
+
+                # Processa os concorrentes vindos do formulário dinâmico
+                eans_brutos = request.form.getlist("eans_concorrentes[]")
+                eans_lista = []
+                for ean_item in eans_brutos:
+                    if "," in ean_item:
+                        eans_lista.extend([e.strip() for e in ean_item.split(",") if e.strip()])
+                    else:
+                        if ean_item.strip():
+                            eans_lista.append(ean_item.strip())
+
+                px = datetime.now() + timedelta(days=dias)
                 
-                # Resgata o ID gerado na tupla de retorno do PostgreSQL
-                n_id = cur.fetchone()[0]
+                query_pai = """
+                    INSERT INTO dados (codigo_barras, cidade, proxima_pesquisa, dias, data_cadastro, usuario_dono)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id
+                """
+                cur.execute(query_pai, (cb, cid, px.date(), dias, usr_dono))
                 
-                if eans and n_id:
+                retorno_id = cur.fetchone()
+                id_puro = retorno_id[0] if retorno_id else None
+                
+                if eans_lista and id_puro:
                     cur.executemany(
                         "INSERT INTO dados_concorrentes (dados_id, ean_concorrente) VALUES (%s, %s)",
-                        [(n_id, e) for e in eans]
+                        [(id_puro, str(e).strip()) for e in eans_lista if e.strip()]
                     )
+                    
             conn.commit()
-            flash("Requisição cadastrada com sucesso!", "success")
+        flash("Nova requisição agendada na base com sucesso!", "success")
     except Exception as e:
-        flash(f"Erro ao salvar no banco: {e}", "danger")
+        print(f"❌ Falha crítica ao inserir novo registro no banco: {e}")
+        flash("Erro interno ao persistir dados no banco operacional.", "danger")
         
     return redirect(url_for("index"))
 
+
+    # O return lê com sucesso absoluto pois as variáveis foram criadas no topo da função
+    return render_template("index.html", tela="painel", tarefas=tarefas, metrics=metrics, cidades_opcoes=cidades_opcoes, q=busca)
+
+
+@app.route('/download_modelo_excel')
+def download_modelo_excel():
+    """Gera uma planilha Excel estruturada modelo em branco e entrega para o usuário."""
+    if "usuario_logado" not in session: 
+        return redirect(url_for('index'))
+        
+    try:
+        # Define as colunas padrão exigidas pelo script e robô de raspagem
+        exemplo = {
+            'codigo_barras': ['7891000123456'],
+            'cidade': ['Salvador'],
+            'dias':[7],
+            'concorrentes': ['7891000999991, 7891000999992']
+        }
+        
+        df_modelo = pd.DataFrame(exemplo)
+        
+        saida_excel = BytesIO()
+        with pd.ExcelWriter(saida_excel, engine='openpyxl') as writer:
+            df_modelo.to_excel(writer, index=False, sheet_name='Modelo_Importacao')
+            
+        saida_excel.seek(0)
+        
+        return send_file(
+            saida_excel,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="Modelo_Importacao_EAN.xlsx"
+        )
+    except Exception as e:
+        print(f"❌ Falha ao gerar modelo de planilha: {e}")
+        flash("Não foi possível gerar o modelo de download.", "danger")
+        return redirect(url_for("index"))
+
+
+@app.route("/importar_excel", methods=["POST"])
+def importar_excel():
+    if "usuario_logado" not in session:
+        return redirect(url_for("index"))
+        
+    file = request.files.get("planilha_ean")
+    if file and file.filename.endswith(('.xlsx', '.xls')):
+        try:
+            import pandas as pd
+            df = pd.read_excel(file)
+            df.columns = [c.strip().lower() for c in df.columns]
+            
+            usr_dono = session.get("usuario_logado", "admin")
+            # Captura o perfil real armazenado na sessão do usuário logado
+            perfil_ativo = session.get("perfil_logado", "USER")
+            
+            with GerenciadorConexao() as conn:
+                with conn.cursor() as cur:
+                    # ---------------------------------------------------------
+                    # CHECAGEM DE LIMITE PARA PLANILHAS (RETIFICADA)
+                    # ---------------------------------------------------------
+                    cur.execute("SELECT limite_maximo FROM usuario WHERE LOWER(nome) = %s", (usr_dono.lower(),))
+                    res_usuario = cur.fetchone()
+                    limite_permitido = res_usuario[0] if res_usuario else 100
+                    
+                    # CORREÇÃO CRUCIAL: Agora verifica o perfil ADMIN na sessão para dar o passe livre absoluto
+                    if perfil_ativo != 'ADMIN':
+                        cur.execute("SELECT COUNT(*) FROM dados WHERE LOWER(usuario_dono) = %s", (usr_dono.lower(),))
+                        qtd_cadastrada = cur.fetchone()[0]
+                        
+                        # Verifica se a quantidade atual somada com as linhas da planilha ultrapassa o limite
+                        if (qtd_cadastrada + len(df)) > limite_permitido:
+                            vagas_restantes = limite_permitido - qtd_cadastrada
+                            vagas_restantes = 0 if vagas_restantes < 0 else vagas_restantes
+                            flash(f"Importação negada! Você possui {qtd_cadastrada} itens e tentou enviar mais {len(df)}. Seu limite máximo é {limite_permitido} (Resta: {vagas_restantes}).", "danger")
+                            return redirect(url_for("index"))
+
+                    # ---------------------------------------------------------
+
+                    for _, row in df.iterrows():
+                        cb_bruto = str(row.get('codigo_barras', '')).strip()
+                        codigo_barras = cb_bruto.split('.')[0] if '.' in cb_bruto and cb_bruto.split('.')[1] == '0' else cb_bruto
+                        
+                        if not codigo_barras or codigo_barras == 'nan':
+                            continue
+                            
+                        cidade = str(row.get('cidade', '')).strip()
+                        
+                        try:
+                            dias = int(row.get('dias', 1))
+                        except:
+                            dias = 1
+                            
+                        proxima_pesquisa = (datetime.now() + timedelta(days=dias)).date()
+
+                        query_pai = """
+                            INSERT INTO dados (codigo_barras, cidade, proxima_pesquisa, dias, data_cadastro, usuario_dono) 
+                            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+                            RETURNING id
+                        """
+                        cur.execute(query_pai, (codigo_barras, cidade, proxima_pesquisa, dias, usr_dono))
+                        novo_id = cur.fetchone()
+                        
+                        concorrentes_brutos = str(row.get('concorrentes', '')).strip()
+                        if concorrentes_brutos and concorrentes_brutos != 'nan' and novo_id:
+                            lista_concorrentes = [c.strip() for c in concorrentes_brutos.split(",") if c.strip()]
+                            
+                            if lista_concorrentes:
+                                cur.executemany(
+                                    "INSERT INTO dados_concorrentes (dados_id, ean_concorrente) VALUES (%s, %s)",
+                                    [(novo_id[0], ean) for ean in lista_concorrentes]
+                                )
+                        
+                conn.commit()
+            flash(f"Lote de {len(df)} agendamentos importado com sucesso!", "success")
+        except Exception as e:
+            print(f"❌ Erro ao processar arquivo de importação Excel: {e}")
+            flash("Falha crítica ao ler a estrutura ou dados da planilha.", "danger")
+            
+    return redirect(url_for("index"))
+
+            
 
 @app.route('/login', methods=['POST'])
 def realizar_login():
     u = request.form.get('usuario', '').strip().lower()
     s = request.form.get('senha', '').strip()
+    
     try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
+        with GerenciadorConexao() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("SELECT nome, senha, ativo, primeiro_acesso FROM usuario WHERE LOWER(nome) = %s", (u,))
                 res = cur.fetchone()
                 
         if res:
-            nome_banco, senha_banco, ativo_banco, primeiro_acesso_banco = res[0], res[1], res[2], res[3]
-            
-            if ativo_banco == 0:
-                flash("Sua conta está Bloqueada! Contate o administrador.", "danger")
+            if res["ativo"] == 0:
+                flash("Sua conta está bloqueada provisoriamente! Contate o suporte.", "danger")
                 return redirect(url_for('index'))
                 
-            if s == senha_banco or (senha_banco.startswith('scrypt:') and check_password_hash(senha_banco, s)):
-                session['usuario_logado'] = str(nome_banco)
-                session['perfil_logado'] = "ADMIN" if str(nome_banco).lower() == "admin" else "USER"
-                
-                if primeiro_acesso_banco == 1:
-                    session['forcar_troca_senha'] = True
-                else:
-                    session['forcar_troca_senha'] = False
-                    
+            if s == res["senha"] or (res["senha"].startswith('scrypt:') and check_password_hash(res["senha"], s)):
+                session.clear()
+                session['usuario_logado'] = str(res["nome"])
+                session['perfil_logado'] = "ADMIN" if str(res["nome"]).lower() == "admin" else "USER"
+                session['forcar_troca_senha'] = bool(res["primeiro_acesso"] == 1)
                 return redirect(url_for('index'))
                 
-        flash("Usuário ou senha incorretos!", "danger")
+        flash("Credenciais de acesso incorretas!", "danger")
     except Exception as e:
-        flash(f"Erro de autenticação: {e}", "danger")
+        print(f"⚠️ Falha operacional no login: {e}")
+        flash("Erro ao processar validação de perfil.", "danger")
         
     return redirect(url_for('index'))
 
@@ -292,12 +529,12 @@ def alterar_senha_primeiro_acesso():
     confirmar_senha = request.form.get("confirmar_senha", "").strip()
     
     if not nova_senha or nova_senha != confirmar_senha:
-        flash("Senhas inválidas ou não coincidem!", "danger")
+        flash("As senhas digitadas não conferem ou estão em branco!", "danger")
         return redirect(url_for('index'))
         
     senha_criptografada = generate_password_hash(nova_senha)
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE usuario
@@ -307,9 +544,10 @@ def alterar_senha_primeiro_acesso():
             conn.commit()
             
         session['forcar_troca_senha'] = False
-        flash("Sua nova senha foi gravada com sucesso! Bem-vindo.", "success")
+        flash("Nova credencial gravada. Login liberado!", "success")
     except Exception as e:
-        flash(f"Erro ao redefinir sua senha: {e}", "danger")
+        print(f"❌ Erro ao atualizar senha no banco: {e}")
+        flash("Impossível atualizar credenciais no momento.", "danger")
         
     return redirect(url_for('index'))
 
@@ -324,206 +562,274 @@ def editar_requisicao():
     cid = request.form.get("cidade")
     dias = request.form.get("dias_pesquisa")
     
+    # Captura os eans concorrentes vindos do input do formulário
+    eans_brutos = request.form.getlist("eans_concorrentes[]")
+    eans_lista = []
+    
+    for ean_item in eans_brutos:
+        if "," in ean_item:
+            eans_lista.extend([e.strip() for e in ean_item.split(",") if e.strip()])
+        else:
+            if ean_item.strip():
+                eans_lista.append(ean_item.strip())
+                
     if not ean_valido(cb):
         flash("Falha ao salvar: O Código de barras editado é inválido.", "danger")
         return redirect(url_for("index"))
         
-    dn = int(dias) if dias and dias.isdigit() else 9999
+    eans_validos = [e for e in eans_lista if ean_valido(e)]
+    dn = int(dias) if dias and dias.isdigit() else 1 # Alterado padrão de 9999 para 1 para evitar congelar o robô
+    
     try:
-        with obter_conn() as conn:
+        # COMPORTAMENTO DINÂMICO: Calcula a nova data de pesquisa baseada nos dias editados
+        proxima_pesquisa = (datetime.now() + timedelta(days=dn)).date()
+        
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
+                # 1. Atualiza os dados do produto pai incluindo a nova data de execução
                 cur.execute("""
                     UPDATE dados
-                    SET codigo_barras = %s, cidade = %s, dias = %s
+                    SET codigo_barras = %s, cidade = %s, dias = %s, proxima_pesquisa = %s
                     WHERE id = %s
-                """, (cb, cid, dn, id_a))
+                """, (cb, cid, dn, proxima_pesquisa, id_a))
+                
+                # 2. Remove os concorrentes antigos associados
+                cur.execute("DELETE FROM dados_concorrentes WHERE dados_id = %s", (id_a,))
+                
+                # 3. Insere os novos concorrentes validados se existirem
+                if eans_validos:
+                    cur.executemany(
+                        "INSERT INTO dados_concorrentes (dados_id, ean_concorrente) VALUES (%s, %s)",
+                        [(id_a, e) for e in eans_validos]
+                    )
             conn.commit()
-        flash("Registro atualizado com sucesso!", "success")
+        flash("Registro de concorrência alterado com sucesso!", "success")
     except Exception as e:
-        flash(f"Erro ao atualizar requisição: {e}", "danger")
+        print(f"❌ Erro na rota /editar: {e}")
+        flash("Falha ao modificar dados do item.", "danger")
         
     return redirect(url_for("index"))
 
 
-@app.route("/admin/usuarios")
+@app.route('/logout')
+def logout():
+    """Limpa a sessão ativa do usuário e redireciona para a tela de login."""
+    session.clear()
+    return redirect(url_for('index'))
+
+@app.route("/cadastrar_usuario", methods=["GET", "POST"])
+@app.route("/admin/usuarios", methods=["GET", "POST"])
 def admin_usuarios():
+    """Painel administrativo para listagem e cadastro de operadores do sistema."""
     if session.get("perfil_logado") != "ADMIN":
         return "Acesso Restrito.", 403
         
+        # =========================================================================
+    # LÓGICA DE INSERÇÃO: PROCESSA O FORMULÁRIO (POST) RETIFICADA
+    # =========================================================================
+    if request.method == "POST":
+        novo_usuario = request.form.get("usuario", "").strip()
+        nova_senha = request.form.get("senha", "").strip()
+        limite_maximo = request.form.get("limite_maximo", "100")
+        
+        # Captura e garante que o valor venha limpo e em letras maiúsculas
+        perfil = request.form.get("perfil", "USER").strip().upper() 
+        
+        if novo_usuario and nova_senha:
+            try:
+                # CORREÇÃO CRUCIAL: Criptografa a senha para o validador de login aceitar e identificar o 1º acesso
+                senha_criptografada = generate_password_hash(nova_senha)
+                
+                with GerenciadorConexao() as conn:
+                    with conn.cursor() as cur:
+                        # Forçamos explicitamente o primeiro_acesso como 1
+                        cur.execute(
+                            """INSERT INTO usuario (nome, senha, limite_maximo, primeiro_acesso, ativo, perfil) 
+                               VALUES (%s, %s, %s, 1, 1, %s)""",
+                            (novo_usuario, senha_criptografada, int(limite_maximo), perfil)
+                        )
+                    conn.commit()
+                flash(f"Operador '{novo_usuario}' cadastrado com sucesso como {perfil}!", "success")
+            except Exception as e:
+                print(f"❌ Falha ao inserir novo usuário: {e}")
+                flash("Erro ao gravar novo usuário no banco de dados.", "danger")
+        else:
+            flash("Por favor, preencha todos os campos obrigatórios.", "warning")
+            
+        return redirect(url_for("admin_usuarios"))
+
+        # =========================================================================
+    # LÓGICA DE LEITURA: CARREGA A LISTAGEM (GET) RETIFICADA
+    # =========================================================================
     usuarios = []
     try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT id, nome, limite_maximo, ativo FROM usuario ORDER BY id DESC")
+        with GerenciadorConexao() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # ADICIONADO 'perfil' NA SELEÇÃO SQL
+                cur.execute("SELECT id, nome, limite_maximo, ativo, perfil FROM usuario ORDER BY id DESC")
                 for row in cur.fetchall():
                     usuarios.append({
-                        "ID": row[0],
-                        "NOME": row[1],
-                        "LIMITE_MAXIMO": row[2],
-                        "ATIVO": row[3]
+                        "ID": row["id"],
+                        "NOME": row["nome"],
+                        "LIMITE_MAXIMO": row["limite_maximo"],
+                        "ATIVO": row["ativo"],
+                        "PERFIL": row["perfil"], # ADICIONADO AQUI PARA ENVIAR AO HTML
+                        "CADASTRADAS": 0,
+                        "REALIZADAS": 0
                     })
     except Exception as e:
-        flash(f"Erro ao ler banco de dados: {e}", "danger")
+        print(f"❌ Falha de leitura em operadores/admin: {e}")
+        flash("Erro ao consultar registros do banco.", "danger")
         
     return render_template("adm_usuarios.html", usuarios=usuarios)
 
 
-@app.route("/admin/usuarios/cadastrar", methods=["POST"])
-def admin_cadastrar():
-    if session.get("perfil_logado") != "ADMIN":
-        return redirect(url_for('index'))
-        
-    u = request.form.get("usuario").strip().lower()
-    s = request.form.get("senha").strip()
-    limite = request.form.get("limite_maximo")
-    perf_escolhido = request.form.get("perfil", "USER")
-    limite_num = int(limite) if limite and limite.isdigit() else 100
-    
-    senha_criptografada = generate_password_hash(s)
-    try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO usuario (nome, senha, limite_maximo, primeiro_acesso, ativo, perfil)
-                    VALUES (%s, %s, %s, 1, 1, %s)
-                """, (u, senha_criptografada, limite_num, perf_escolhido))
-            conn.commit()
-        flash(f"Usuário {u} gravado com limite de {limite_num} requisições!", "success")
-    except Exception as e:
-        flash(f"Erro ao salvar no PostgreSQL: {e}", "danger")
-        
-    return redirect(url_for("admin_usuarios"))
 
-
-@app.route("/admin/usuarios/bloquear/<int:id_alvo>")
-def admin_bloquear(id_alvo):
-    if session.get("perfil_logado") != "ADMIN":
-        return redirect(url_for('index'))
-    try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT ativo, nome FROM usuario WHERE id = %s", (id_alvo,))
-                res = cur.fetchone()
-                if res:
-                    ativo_atual, nome_usuario = res[0], res[1]
-                    
-                    if nome_usuario.lower() == "admin":
-                        flash("A conta master 'admin' não pode ser desativada!", "warning")
-                        return redirect(url_for("admin_usuarios"))
-                        
-                    novo_status = 0 if ativo_atual == 1 else 1
-                    cur.execute("UPDATE usuario SET ativo = %s WHERE id = %s", (novo_status, id_alvo))
-                    
-                    msg = "Bloqueado" if novo_status == 0 else "Ativado"
-                    flash(f"Usuário {nome_usuario} foi {msg} com sucesso!", "success")
-            conn.commit()
-    except Exception as e:
-        flash(f"Erro ao alterar status do usuário: {e}", "danger")
-        
-    return redirect(url_for("admin_usuarios"))
-
-
-@app.route("/admin/usuarios/deletar/<int:id_alvo>")
-def admin_deletar(id_alvo):
-    if session.get("perfil_logado") != "ADMIN":
-        return redirect(url_for('index'))
-    try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM usuario WHERE id = %s AND LOWER(nome) != 'admin'", (id_alvo,))
-            conn.commit()
-        flash("Usuário removido com sucesso!", "success")
-    except Exception as e:
-        flash(f"Erro ao deletar: {e}", "danger")
-        
-    return redirect(url_for("admin_usuarios"))
-
-
-@app.route("/admin/usuarios/editar", methods=["POST"])
-def admin_editar():
-    if session.get("perfil_logado") != "ADMIN":
-        return redirect(url_for('index'))
-        
-    id_alvo = request.form.get("id")
-    novo_nome = request.form.get("usuario").strip().lower()
-    nova_senha = request.form.get("senha", "").strip()
-    limite = request.form.get("limite_maximo")
-    limite_num = int(limite) if limite and limite.isdigit() else 100
-    
-    try:
-        with obter_conn() as conn:
-            with conn.cursor() as cur:
-                if nova_senha:
-                    senha_criptografada = generate_password_hash(nova_senha)
-                    cur.execute("""
-                        UPDATE usuario
-                        SET nome = %s, senha = %s, limite_maximo = %s
-                        WHERE id = %s AND LOWER(nome) != 'admin'
-                    """, (novo_nome, senha_criptografada, limite_num, id_alvo))
-                else:
-                    cur.execute("""
-                        UPDATE usuario
-                        SET nome = %s, limite_maximo = %s
-                        WHERE id = %s AND LOWER(nome) != 'admin'
-                    """, (novo_nome, limite_num, id_alvo))
-            conn.commit()
-        flash("Dados do operador atualizados com sucesso!", "success")
-    except Exception as e:
-        flash(f"Erro ao editar no PostgreSQL: {e}", "danger")  # 🌟 Agora o Python vê o recuo correto aqui
-        
-    return redirect(url_for("admin_usuarios"))
-
-
-@app.route("/deletar_bloco", methods=["POST"])
-def deletar_bloco_requisicao():
+@app.route("/reiniciar_requisicao/<int:id_alvo>")
+def reiniciar_requisicao(id_alvo):
+    """Muda o status de um registro com erro ou aviso de volta para 'Pendente'."""
     if "usuario_logado" not in session:
         return redirect(url_for('index'))
         
-    ids_selecionados = request.form.getlist("usuarios_deletar[]")
+    try:
+        with GerenciadorConexao() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE dados 
+                    SET status = 'Pendente', proxima_pesquisa = CURRENT_DATE 
+                    WHERE id = %s
+                """, (id_alvo,))
+            conn.commit()
+        flash("Agendamento reiniciado com sucesso para reprocessamento!", "success")
+    except Exception as e:
+        print(f"❌ Erro ao reiniciar requisição ID {id_alvo}: {e}")
+        flash("Não foi possível reiniciar o processamento deste item.", "danger")
+        
+    return redirect(url_for("index"))
+
+@app.route("/deletar_em_bloco", methods=["POST"])
+def deletar_bloco_requisicao():
+    """Remove múltiplas requisições selecionadas na tabela operando em lote."""
+    if "usuario_logado" not in session:
+        return redirect(url_for('index'))
+        
+    # CORREÇÃO: Mudado de "usuarios_deletar[]" para "ids_excluir[]" para espelhar o HTML
+    ids_selecionados = request.form.getlist("ids_excluir[]")
     if not ids_selecionados:
         flash("Nenhuma requisição foi selecionada para exclusão!", "warning")
         return redirect(url_for("index"))
         
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
                 cur.executemany("DELETE FROM dados_concorrentes WHERE dados_id = %s", [(idx,) for idx in ids_selecionados])
                 cur.executemany("DELETE FROM dados WHERE id = %s", [(idx,) for idx in ids_selecionados])
             conn.commit()
         flash(f"{len(ids_selecionados)} requisições excluídas com sucesso em bloco!", "success")
     except Exception as e:
-        flash(f"Erro ao remover em bloco: {e}", "danger")
+        print(f"❌ Erro na deleção em lote: {e}")
+        flash("Falha parcial ao remover itens em bloco.", "danger")
         
     return redirect(url_for("index"))
 
 
+@app.route("/deletar/<int:id_alvo>")
 @app.route("/deletar_individual/<int:id_alvo>")
 def deletar_requisicao(id_alvo):
+    """Remove uma única requisição selecionada a partir do ID operacional."""
     if "usuario_logado" not in session:
         return redirect(url_for('index'))
         
     try:
-        with obter_conn() as conn:
+        with GerenciadorConexao() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM dados_concorrentes WHERE dados_id = %s", (id_alvo,))
                 cur.execute("DELETE FROM dados WHERE id = %s", (id_alvo,))
             conn.commit()
+        from flask import flash
         flash("Requisição removida com sucesso!", "success")
     except Exception as e:
-        flash(f"Erro ao deletar requisição: {e}", "danger")
+        print(f"❌ Erro na deleção de ID {id_alvo}: {e}")
+        from flask import flash
+        flash("Não foi possível excluir o item individualmente.", "danger")
         
     return redirect(url_for("index"))
 
-# --- LOGOUT ---
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
+
+@app.route("/atualizar/<int:id_tarefa>")
+def atualizar_requisicao_imediata(id_tarefa):
+    """Força o agendamento a voltar para o status Pendente com execução para o dia de hoje."""
+    if "usuario_logado" not in session:
+        return redirect(url_for("index"))
+        
+    try:
+        with GerenciadorConexao() as conn:
+            with conn.cursor() as cur:
+                # Altera o status e redefine a próxima pesquisa para a data de hoje.
+                # Dessa forma, o robô operacional vai capturar o registro na próxima rodada.
+                cur.execute(
+                    "UPDATE dados SET status = 'Pendente', proxima_pesquisa = CURRENT_DATE WHERE id = %s", 
+                    (id_tarefa,)
+                )
+            conn.commit()
+        flash("Agendamento redefinido com sucesso! O robô executará a atualização na próxima rodada.", "success")
+    except Exception as e:
+        print(f"❌ Erro ao forçar atualização da tarefa {id_tarefa}: {e}")
+        flash("Não foi possível solicitar a atualização imediata do item.", "danger")
+        
+    return redirect(url_for("index"))
+
+@app.route('/admin/suspender/<int:id>')
+def suspender_usuario(id):
+    if session.get("perfil_logado") != "ADMIN":
+        return "Acesso Restrito.", 403
+        
+    try:
+        with GerenciadorConexao() as conn:
+            with conn.cursor() as cur:
+                # 1. Busca o status atual do usuário (coluna 'ativo')
+                cur.execute("SELECT ativo FROM usuario WHERE id = %s", (id,))
+                res = cur.fetchone()
+                
+                if res is not None:
+                    status_atual = res[0]
+                    # Se for 1 (Ativo), muda para 0. Se for 0 (Inativo), muda para 1.
+                    novo_status = 0 if status_atual == 1 else 1
+                    
+                    # 2. Atualiza o banco com o novo status invertido
+                    cur.execute("UPDATE usuario SET ativo = %s WHERE id = %s", (novo_status, id))
+                    
+                    if novo_status == 0:
+                        flash("Operador suspenso com sucesso!", "success")
+                    else:
+                        flash("Operador reativado com sucesso!", "success")
+            conn.commit()
+            
+    except Exception as e:
+        print(f"❌ Erro ao alternar status do usuário ID {id}: {e}")
+        flash("Não foi possível alterar o status do operador.", "danger")
+        
+    return redirect(url_for('admin_usuarios'))
+
+@app.route("/admin/deletar_usuario/<int:id>")
+def deletar_usuario(id):
+    if session.get("perfil_logado") != "ADMIN":
+        return "Acesso Restrito.", 403
+        
+    try:
+        with GerenciadorConexao() as conn:
+            with conn.cursor() as cur:
+                # Remove o operador da tabela 'usuario' baseado no ID recebido
+                cur.execute("DELETE FROM usuario WHERE id = %s", (id,))
+            conn.commit()
+        flash("Operador removido com sucesso da base física!", "success")
+    except Exception as e:
+        print(f"❌ Erro ao deletar o usuário ID {id}: {e}")
+        flash("Não foi possível excluir este operador do sistema.", "danger")
+        
+    return redirect(url_for("admin_usuarios"))
 
 
-# --- INICIALIZAÇÃO ---
-# 🌟 CORREÇÃO: Alterado para a nomenclatura padrão do Python com sublinhados duplos
 if __name__ == "__main__":
-    # O Render define uma variável chamada PORT automaticamente, precisamos escutá-la
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # O parâmetro debug=True desativa o cache interno do Flask e força a leitura do novo HTML
+    app.run(host="0.0.0.0", port=5000, debug=True)

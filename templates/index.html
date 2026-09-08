@@ -3,301 +3,568 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Requisições</title>
-    <link href="https://googleapis.com" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        body { background-color: #f8fafc; color: #1e293b; padding: 40px 20px; }
-        .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 25px; }
-        .flash-message { padding: 14px 20px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; font-weight: 500; }
-        .flash-message.success { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-        .flash-message.danger { background-color: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-        .flash-message.warning { background-color: #fffbec; color: #92400e; border: 1px solid #fde68a; }
-        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .header-title { font-size: 22px; font-weight: 700; color: #0f172a; }
-        .header-title span { color: #2563eb; }
-        .btn-top-nav { background-color: #f1f5f9; color: #475569; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid #e2e8f0; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-        .metric-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; text-align: center; }
-        .metric-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px; display: block; }
-        .metric-value { font-size: 24px; font-weight: 700; color: #0f172a; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .panel-box { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 30px; }
-        .panel-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 25px; }
-        .form-row { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
-        .form-group { flex: 1; min-width: 250px; }
-        .form-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
-        .form-control, .form-select { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; color: #334155; outline: none; }
-        .form-control:focus, .form-select:focus { border-color: #2563eb; }
-        .radio-group-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 5px; }
-        .radio-option { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #334155; cursor: pointer; }
-        .radio-option input { accent-color: #2563eb; width: 16px; height: 16px; }
-        .btn-primary-action { width: 100%; background-color: #2563eb; color: white; padding: 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-        .btn-secondary-action { background-color: #f1f5f9; color: #475569; padding: 8px 14px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
-        .btn-danger-action { background-color: #ef4444; color: white; padding: 10px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 20px; display: inline-flex; align-items: center; gap: 6px; }
-        .table-responsive { width: 100%; overflow-x: auto; }
-        .custom-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        .custom-table th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; padding: 16px 20px; background-color: #f8fafc; border-bottom: 1px solid #f1f5f9; }
-        .custom-table td { padding: 18px 20px; color: #334155; border-bottom: 1px solid #f1f5f9; }
-        .custom-table tbody tr:hover { background-color: #f8fafc; }
-        .badge-status { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-        .badge-status.pendente { background-color: #fef3c7; color: #d97706; }
-        .badge-status.andamento { background-color: #dbeafe; color: #2563eb; }
-        .badge-status.concluida { background-color: #d1fae5; color: #059669; }
-        .action-link { font-weight: 600; color: #3b82f6; text-decoration: none; margin-right: 12px; cursor: pointer; }
-        .action-link.delete { color: #ef4444; }
-        .chk-custom { accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer; }
-
-        /* Caixa Flutuante (Modal) */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 9999; justify-content: center; align-items: center; }
-        .modal-content-box { background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0; animation: modalFadeIn 0.2s ease-out; }
-        @keyframes modalFadeIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    </style>
+    <title>Price PDV - Painel</title>
+    {% if tela == "login" or "usuario_logado" not in session %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    {% else %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% endif %}
+    <script src="https://unpkg.com"></script>
 </head>
-<body>
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %} 
-            {% if messages %} 
-                {% for cat, msg in messages %}
-                    <div class="flash-message {{ 'danger' if cat in ['error','danger'] else cat }}">{{ msg }}</div>
-                {% endfor %} 
-            {% endif %} 
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+
+    <!-- ================================================================= -->
+    <!-- CONDIÇÃO 1: TELA DE LOGIN                                         -->
+    <!-- ================================================================= -->
+    {% if tela == "login" or "usuario_logado" not in session %}
+    <div class="login-container">
+        <div class="header" style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 24px;">
+    
+    <!-- CONTEINER INTEGRADO DA LOGO (CARRINHO + TEXTO) -->
+    <div class="logo-container" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px;">
+        <!-- Ícone do Carrinho de Supermercado Azul -->
+        <div style="background: #2563eb; color: #ffffff; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
+            <svg xmlns="http://w3.org" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="21" r="1"/>
+                <circle cx="19" cy="21" r="1"/>
+                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+            </svg>
+        </div>
+        <!-- Texto Price-PDV Estilizado de Fábrica -->
+        <span class="logo-text" style="font-size: 22px; font-weight: 700; color: #1e293b; letter-spacing: -0.03em;">Price<span style="color: #2563eb;">-PDV</span></span>
+    </div>
+    <p class="subtitle" style="color: #64748b; font-size: 14px; margin-top: 4px;">Insira suas credenciais operacionais para acessar</p>
+</div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash-message">
+                    <i data-lucide="alert-circle" style="width: 16px; height: 16px;"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
         {% endwith %}
 
-        {% if tela == 'login' %}
-        <!-- TELA DE LOGIN ATUALIZADA COM LOGO -->
-        <div class="panel-box" style="max-width: 400px; margin: 80px auto; padding: 40px 30px;">
-            
-            <!-- SEÇÃO DA LOGO: Centralizada e com tamanho responsivo -->
-            <div style="text-align: center; margin-bottom: 30px;">
-                <!-- O Flask busca a imagem automaticamente na pasta 'static' -->
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo do Sistema" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+        <form action="/" method="POST">
+            <div class="form-group">
+                <label>Usuário</label>
+                <div class="input-wrapper">
+                    <span class="input-icon"><i data-lucide="user" style="width: 16px; height: 16px;"></i></span>
+                    <input type="text" name="usuario" placeholder="Seu usuário" required>
+                </div>
             </div>
-
-            <form action="{{ url_for('realizar_login') }}" method="POST">
-                <div style="margin-bottom: 20px;">
-                    <label class="form-label">Usuário</label>
-                    <input type="text" name="usuario" class="form-control" placeholder="Digite seu usuário" required>
+            <div class="form-group">
+                <label>Senha de Acesso</label>
+                <div class="input-wrapper">
+                    <span class="input-icon"><i data-lucide="lock" style="width: 16px; height: 16px;"></i></span>
+                    <input type="password" name="senha" placeholder="••••••••" required>
                 </div>
-                <div style="margin-bottom: 25px;">
-                    <label class="form-label">Senha de Acesso</label>
-                    <input type="password" name="senha" class="form-control" placeholder="••••••••" required>
-                </div>
-                <button type="submit" class="btn-primary-action">Entrar no Painel</button>
-            </form>
-        </div>        {% else %}
+            </div>
+            <button type="submit">Entrar no Sistema</button>
+        </form>
+    </div>
 
-{# --- TELA FLUTUANTE DE ALTERAÇÃO DE SENHA OBRIGATÓRIA --- #}
-{% if session.get('forcar_troca_senha') %}
-<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center;">
-    <div style="background: #fff; padding: 30px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: center;">
-        <h3 style="color: #d9534f; margin-top: 0;">🔒 Primeiro Acesso Detectado</h3>
-        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Por motivos de segurança, você precisa alterar sua senha provisória antes de continuar para o painel.</p>
+    <!-- ================================================================= -->
+    <!-- CONDIÇÃO 2: TELA DO PAINEL PRINCIPAL                              -->
+    <!-- ================================================================= -->
+    {% elif tela == "painel" %}
+    <div class="app-container">
+        <!-- Sidebar Esquerda -->
+        <aside class="sidebar">
+            <div>
+                <div class="logo-area" style="display: flex; align-items: center; gap: 10px; padding-left: 4px; margin-bottom: 32px;">
+    <!-- O novo container do carrinho de supermercado -->
+    <div style="background: #2563eb; color: #ffffff; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
+        <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+    </div>
+    <!-- Nome do sistema estilizado -->
+    <span class="logo-text" style="font-size: 18px; font-weight: 700; color: #1e293b; letter-spacing: -0.03em;">Price<span style="color: #2563eb;">-PDV</span></span>
+</div>
+
+
+                <nav class="nav-menu">
+                    <a href="/" class="nav-item active">Menu</a>
+                    {% if session.get('perfil_logado') == 'ADMIN' %}
+                        <a href="/admin/usuarios" class="nav-item">Usuários</a>
+                    {% endif %}
+                </nav>
+            </div>
+            
+            <!-- Bloco de Perfil Otimizado com Logout Unificado -->
+            <div style="margin-top: auto; padding: 16px 8px; border-top: 1px solid #f1f5f9; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
+                    <tr style="border: none;">
+                        <td style="width: 42px; padding: 0; vertical-align: middle; border: none;">
+                            <div style="width: 38px; height: 38px; background: #eff6ff; color: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; border: 1px solid #dbeafe;">
+                                {{ session.get('usuario_logado', 'O') | upper }}
+                            </div>
+                        </td>
+                        <td style="padding: 0 8px; vertical-align: middle; text-align: left; border: none; line-height: 1.2;">
+                            <p style="font-size: 13px; font-weight: 600; color: #1e293b; margin: 0; white-space: nowrap;">
+                                {{ session.get('usuario_logado', 'Operador') }}
+                            </p>
+                            <span style="font-size: 11px; color: #94a3b8; white-space: nowrap; display: block; margin-top: 2px;">
+                                Módulo Operacional
+                            </span>
+                        </td>
+                        <td style="width: 45px; padding: 0; text-align: right; vertical-align: middle; border: none;">
+                            <a href="/logout" style="color: #64748b; text-decoration: none; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; display: inline-block; cursor: pointer;" onmouseover="this.style.color='#ef4444'; this.style.background='#fef2f2'; this.style.borderColor='#fee2e2';" onmouseout="this.style.color='#64748b'; this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                                Sair
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </aside>
+
+        <!-- Área Principal de Conteúdo -->
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div style="padding: 16px 32px; background: {% if category == 'success' %}#f0fdf4{% else %}#fef2f2{% endif %}; color: {% if category == 'success' %}#15803d{% else %}#b91c1c{% endif %}; border-bottom: 1px solid #e5e7eb; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="{% if category == 'success' %}check-circle{% else %}alert-circle{% endif %}" style="width: 16px; height: 16px;"></i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Requisições</h1>
+                    <p>agendamento de movimentações de preços.</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/download_modelo_excel" class="btn-secondary" style="text-decoration:none; display:inline-block; vertical-align:middle;">Baixar Modelo Excel</a>
+                    <button class="btn-secondary" onclick="abrirModal('modalImportar')" style="cursor:pointer; display:inline-block; vertical-align:middle;">Importar Excel</button>
+                    <button class="btn-primary" onclick="abrirModal('modalCadastrar')">+ Novo Agendamento</button>
+                </div>
+            </header>
+
+                 <!-- Área do Corpo da Página Realinhada na Vertical -->
+            <div class="page-body" style="padding: 40px; display: block; width: 100%; clear: both;">
+                
+                <!-- 1. GRID DE CARDS SUPERIOR (Ocupando 100% da largura no topo) -->
+                <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; width: 100%;">
+                    <!-- CARD 1: TOTAL -->
+                    <div class="metric-card" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid #e2e8f0; padding:20px; border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div><div class="metric-label" style="color:#64748b; font-size:12px; font-weight:700; text-transform:uppercase;">Total</div><div class="metric-value" style="color:#0f172a; font-size:32px; font-weight:700; margin-top:6px;">{{ metrics.total }}</div></div>
+                        <div style="background:#f1f5f9; padding:10px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                            <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- CARD 2: PENDENTES -->
+                    <div class="metric-card" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid #e2e8f0; padding:20px; border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div><div class="metric-label" style="color:#64748b; font-size:12px; font-weight:700; text-transform:uppercase;">Pendentes</div><div class="metric-value" style="color:#0f172a; font-size:32px; font-weight:700; margin-top:6px;">{{ metrics.pendentes }}</div></div>
+                        <div style="background:#fef3c7; padding:10px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                            <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- CARD 3: EM ANDAMENTO -->
+                    <div class="metric-card" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid #e2e8f0; padding:20px; border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div><div class="metric-label" style="color:#64748b; font-size:12px; font-weight:700; text-transform:uppercase;">Em Andamento</div><div class="metric-value" style="color:#0f172a; font-size:32px; font-weight:700; margin-top:6px;">{{ metrics.andamento }}</div></div>
+                        <div style="background:#e0e7ff; padding:10px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                            <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- CARD 4: CONCLUÍDAS -->
+                    <div class="metric-card" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid #e2e8f0; padding:20px; border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div><div class="metric-label" style="color:#64748b; font-size:12px; font-weight:700; text-transform:uppercase;">Concluídas</div><div class="metric-value" style="color:#0f172a; font-size:32px; font-weight:700; margin-top:6px;">{{ metrics.concluidas }}</div></div>
+                        <div style="background:#dcfce7; padding:10px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                            <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. CONTAINER DA TABELA (Posicionado perfeitamente abaixo dos cards) -->
+                <div class="table-container" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width:100%; display:block; clear:both;">
+                    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
+                        <strong style="font-size: 16px; color: #1e293b;">Fila de Tarefas</strong>
+                        
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button type="submit" form="formExcluirEmBloco" id="btnExcluirBloco" onclick="return confirm('Deseja realmente excluir todas as requisições selecionadas?')" style="display: none; background: #ef4444; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                                Excluir Selecionados (<span id="contadorSelecionados">0</span>)
+                            </button>
+                            
+                            <form method="GET" action="/" style="margin: 0; display: inline-block;">
+                                <input type="text" name="q" placeholder="Filtrar por EAN..." value="{{ q or '' }}" class="search-input">
+                            </form>
+                        </div>
+                    </div>
+
+<div style="max-height: 400px; overflow-y: auto;">			
+
+                    <form id="formExcluirEmBloco" method="POST" action="/deletar_em_bloco" style="margin: 0;">
+                        <table class="custom-table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px; padding-left: 24px;">
+                                        <input type="checkbox" id="checkboxMestre" style="cursor: pointer; width: 16px; height: 16px; accent-color: #2563eb;">
+                                    </th>
+                                    <th>EAN Pai</th>
+                                    <th>Concorrentes</th>
+                                    <th>Cidade Filtro</th>
+                                    <th>Status</th>
+                                    <th>Data Cadastro</th>
+                                    <th style="text-align: right;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+    {% for t in tarefas %}
+    <tr style="border-bottom: 1px solid #f1f5f9;">
+        <!-- Coluna 1: Checkbox Individual -->
+        <td style="padding-left: 24px; vertical-align: middle;">
+            <input type="checkbox" name="ids_excluir[]" value="{{ t[0] }}" class="checkbox-individual" style="cursor: pointer; width: 16px; height: 16px; accent-color: #2563eb;">
+        </td>
         
-        <form action="{{ url_for('alterar_senha_primeiro_acesso') }}" method="POST">
-            <div style="margin-bottom: 15px; text-align: left;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px;">Nova Senha:</label>
-                <input type="password" name="nova_senha" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        <!-- Coluna 2: EAN Pai -->
+        <td style="font-weight: 600; color: #111827; vertical-align: middle;">{{ t[1] }}</td>
+        
+        <!-- Coluna 3: Concorrentes -->
+        <td style="color: #6b7280; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;">{{ t[2] }}</td>
+        
+        <!-- Coluna 4: Cidade Filtro -->
+        <td style="color: #334155; vertical-align: middle;">{{ t[3] }}</td>
+        
+        <!-- Coluna 5: Status -->
+        <td style="vertical-align: middle;">
+            {% set status_limpo = t[4]|string|lower %}
+            <span class="badge 
+                {% if 'conclui' in status_limpo or 'processado' in status_limpo %}badge-concluido
+                {% elif 'andamento' in status_limpo %}badge-andamento
+                {% elif 'erro' in status_limpo %}badge-erro
+                {% else %}badge-pendente{% endif %}">
+                {% if 'conclui' in status_limpo or 'processado' in status_limpo %}Concluída
+                {% elif 'andamento' in status_limpo %}Em Andamento
+                {% elif 'erro' in status_limpo %}Erro
+                {% else %}Pendente{% endif %}
+            </span>
+        </td>
+        
+        <!-- Coluna 6: Data Cadastro -->
+        <td style="color: #6b7280; vertical-align: middle;">{{ t[5] }}</td>
+        
+  <!-- Coluna 7: Botões de Ações (Alinhados à Direita) -->
+<td style="text-align: right; padding-right: 24px; white-space: nowrap; vertical-align: middle;">
+    <div style="display: inline-flex; align-items: center; gap: 6px;">
+
+        <!-- 1. DEFINIÇÃO DAS REGRAS DE BLOQUEIO -->
+        {% set ja_concluida = 'conclui' in status_limpo or 'processado' in status_limpo %}
+        {% set usuario_comum = session.get('perfil_logado') != 'ADMIN' %}
+
+        {% if ja_concluida and usuario_comum %}
+            
+            <!-- ==========================================
+                 VERSÃO BLOQUEADA (Usuário Comum + Concluída)
+                 ========================================== -->
+
+            <!-- 1. Botão Atualizar (Bloqueado) -->
+            <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #f8fafc; color: #94a3b8; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: not-allowed; opacity: 0.6; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.253 8H18" />
+                </svg>
+                Atualizar
+            </span>
+
+            <!-- 2. Botão Editar (Bloqueado) -->
+            <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #f8fafc; color: #94a3b8; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: not-allowed; opacity: 0.6; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-2.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Editar
+            </span>
+
+            <!-- 3. Botão Excluir (Bloqueado) -->
+            <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #f8fafc; color: #94a3b8; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: not-allowed; opacity: 0.6; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Excluir
+            </span>
+
+        {% else %}
+            
+            <!-- ==========================================
+                 VERSÃO ATIVA (Seu código original mantido)
+                 ========================================== -->
+
+            <!-- 1. Botão Atualizar -->
+            <a href="/atualizar/{{ t[0] }}" 
+               style="display: inline-flex; align-items: center; justify-content: center; background-color: #eff6ff; color: #1d4ed8; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #bfdbfe; border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+               onmouseover="this.style.backgroundColor='#dbeafe'; this.style.borderColor='#93c5fd';"
+               onmouseout="this.style.backgroundColor='#eff6ff'; this.style.borderColor='#bfdbfe';">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.253 8H18" />
+                </svg>
+                Atualizar
+            </a>
+
+            <!-- 2. Botão Editar -->
+            <a href="javascript:void(0)" 
+               class="btn-editar-acao"
+               data-id="{{ t[0] }}"
+               data-cb="{{ t[1] }}"
+               data-cidade="{{ t[3] }}"
+               data-dias="{{ t[6] if t[6] else 1 }}"
+               data-concorrentes="{{ t[2] if t[2] != 'Sem concorrentes' else '' }}"
+               style="display: inline-flex; align-items: center; justify-content: center; background-color: #f1f5f9; color: #334155; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+               onmouseover="this.style.backgroundColor='#e2e8f0'; this.style.color='#0f172a'; this.style.borderColor='#94a3b8';"
+               onmouseout="this.style.backgroundColor='#f1f5f9'; this.style.color='#334155'; this.style.borderColor='#cbd5e1';">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-2.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Editar
+            </a>
+
+            <!-- 3. Botão Excluir -->
+            <a href="/deletar/{{ t[0] }}" 
+               onclick="return confirm('Tem certeza que deseja excluir este agendamento?')" 
+               style="display: inline-flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #dc2626; font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid #fee2e2; border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+               onmouseover="this.style.backgroundColor='#fee2e2'; this.style.borderColor='#fca5a5';"
+               onmouseout="this.style.backgroundColor='#fef2f2'; this.style.borderColor='#fee2e2';">
+                <svg xmlns="http://w3.org" style="width: 14px; height: 14px; margin-right: 5px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Excluir
+            </a>
+
+        {% endif %}
+
+    </div>
+</td>
+
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="7" style="text-align: center; color: #9ca3af; padding: 48px;">Nenhuma requisição localizada no banco de dados.</td>
+    </tr>
+{% endfor %}
+
+</tbody>
+
+
+                        </table>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- JANELAS MODAIS OPERACIONAIS FLUTUANTES                            -->
+    <!-- ================================================================= -->
+    <div id="modalEditar" class="modal-backdrop" style="display:none">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Editar Agendamento</h3>
+                <button class="close-btn" onclick="fecharModal('modalEditar')">&times;</button>
+            </div>
+            <form action="/editar" method="POST" style="display:flex; flex-direction:column; gap:14px">
+                <input type="hidden" name="id" id="edit_id">
+                <div>
+                    <label class="form-label">Código de Barras (EAN Pai)</label>
+                    <input type="text" name="codigo_barras" id="edit_cb" required class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Cidade Filtro</label>
+                    <select name="cidade" class="form-select" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer;">
+    {% for cid in cidades_opcoes %}
+        <option value="{{ cid }}">{{ cid }}</option>
+    {% endfor %}
+</select>
+                </div>
+                <div>
+                    <label class="form-label">Frequência de Atualização (Dias)</label>
+                    <input type="number" name="dias_pesquisa" id="edit_dias" class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">EANs de Concorrentes (Separados por vírgula)</label>
+                    <input type="text" name="eans_concorrentes[]" id="edit_concorrentes" class="form-input">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="fecharModal('modalEditar')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+<!-- JANELA FLUTUANTE: NOVO AGENDAMENTO DE MONITORAMENTO              -->
+<!-- ================================================================= -->
+<div id="modalCadastrar" class="modal-backdrop" style="display: none;">
+    <div class="modal-box" style="background: #ffffff; border-radius: 12px; padding: 28px; max-width: 500px; width: 100%;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
+            <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 0;">+ Novo Agendamento de Monitoramento</h3>
+            <button class="close-btn" onclick="fecharModal('modalCadastrar')" style="background: none; border: none; font-size: 22px; color: #94a3b8; cursor: pointer;">&times;</button>
+        </div>
+        
+        <form action="/cadastrar" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Código de Barras (EAN Pai)</label>
+                <input type="text" name="codigo_barras" placeholder="Ex: 7891000123456" required class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
             </div>
             
-            <div style="margin-bottom: 20px; text-align: left;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px;">Confirme a Nova Senha:</label>
-                <input type="password" name="confirmar_senha" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Cidade Filtro para Geolocalização</label>
+                <!-- CHAVE DE CONEXÃO: Menu suspenso alimentado em tempo real pelo banco cidades_sistema -->
+                <select name="cidade" class="form-select" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer; outline: none;">
+                    {% for cid in cidades_opcoes %}
+                        <option value="{{ cid }}">{{ cid }}</option>
+                    {% endfor %}
+                </select>
             </div>
             
-            <button type="submit" style="width: 100%; background: #0275d8; color: white; border: none; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 16px;">
-                Gravar Nova Senha
-            </button>
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Frequência de Atualização (Dias)</label>
+                <input type="number" name="dias_pesquisa" placeholder="Ex: 7" class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">EANs de Concorrentes (Separados por vírgula)</label>
+                <input type="text" name="eans_concorrentes[]" placeholder="Ex: 7891000111, 7891000222" class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            
+            <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                <button type="button" class="btn-secondary" onclick="fecharModal('modalCadastrar')" style="padding: 10px 16px; border: 1px solid #cbd5e1; background: #fff; color: #344054; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding: 10px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">Salvar na Base</button>
+            </div>
         </form>
     </div>
 </div>
-{% endif %}
 
-Painel de Requisições - {{ session['usuario_logado'] }}
-        <div class="header-area">
-            <div class="header-title">Painel de Requisições - <span>{{ session['usuario_logado'] }}</span></div>
-            <div>
-                {% if session.get('perfil_logado') == 'ADMIN' %}<a href="{{ url_for('admin_usuarios') }}" class="btn-top-nav">⚙ Gerenciar Usuários</a>{% endif %} 
-                <a href="{{ url_for('logout') }}" class="btn-top-nav" style="color: #ef4444; border-color: #fca5a5; margin-left: 10px;">Sair</a>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 3: IMPORTAÇÃO MASSIVA CORRIGIDO                             -->
+    <!-- ================================================================= -->
+    <div id="modalImportar" class="modal-backdrop" style="display: none;">
+        <div class="modal-box" style="max-width: 480px; padding: 28px; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; display: block;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px; margin-bottom: 20px;">
+                <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0;">Importação Massiva de EANs via Excel</h3>
+                <button type="button" class="close-btn" onclick="fecharModal('modalImportar')" style="background: transparent; border: none; font-size: 22px; color: #94a3b8; cursor: pointer;">&times;</button>
             </div>
-        </div>
-
-        <div class="metrics-grid">
-            <div class="metric-card"><span class="metric-label">Total Geral</span><div class="metric-value">📊 {{ metrics['total'] }}</div></div>
-            <div class="metric-card"><span class="metric-label">Pendentes</span><div class="metric-value">⏳ {{ metrics['pendentes'] }}</div></div>
-            <div class="metric-card"><span class="metric-label">Em Andamento</span><div class="metric-value">🚀 {{ metrics['andamento'] }}</div></div>
-            <div class="metric-card"><span class="metric-label">Concluídas</span><div class="metric-value">✅ {{ metrics['concluidas'] }}</div></div>
-        </div>
-
-        <div class="panel-box">
-            <div class="panel-title">Cadastrar Nova Tarefa / Requisição no Banco</div>
-            <form action="{{ url_for('cadastrar_requisicao') }}" method="POST">
-                <div class="form-row">
-                    <div class="form-group"><label class="form-label">Código de Barras</label><input type="text" name="codigo_barras" class="form-control" placeholder="Ex: 7891234567890" required></div>
-                    <div class="form-group"><label class="form-label">Cidade de Destino</label><select name="cidade" class="form-select">{% for cid in cidades_opcoes %}<option value="{{ cid }}">{{ cid }}</option>{% endfor %}</select></div>
+            
+            <div class="modal-info-box" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 10px; font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px;">
+                A estrutura do arquivo Excel deve conter as colunas: <strong>codigo_barras, cidade, dias, concorrentes</strong>.<br>
+                <a href="/download_modelo_excel" style="color: #2563eb; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📥 Baixar Planilha Modelo Oficial</a>
+            </div>
+            
+            <!-- Garantia do Formulário com Enctype para Envio de Arquivos -->
+            <form action="/importar_excel" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0;">
+                <div>
+                    <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px;">Selecione o arquivo do seu computador (.xlsx)</label>
+                    <input type="file" name="planilha_ean" accept=".xlsx, .xls" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #fff;">
                 </div>
-                <div style="margin-bottom: 25px;">
-                    <label class="form-label">Dias de Pesquisa Regulamentados</label>
-                    <div class="radio-group-container">
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="1" checked> 1 Dia</label>
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="3"> 3 Dias</label>
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="7"> 7 Dias</label>
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="15"> 15 Dias</label>
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="30"> 30 Dias</label>
-                        <label class="radio-option"><input type="radio" name="dias_pesquisa" value="9999"> Indefinida</label>
-                    </div>
-                </div>
-                <div style="margin-bottom: 30px;">
-                    <label class="form-label">EANs Concorrentes Associados (Opcional)</label>
-                    <div id="container-concorrentes" style="max-width: 450px;"><input type="text" name="eans_concorrentes[]" class="form-control" placeholder="EAN Concorrente" style="margin-bottom: 8px;"></div>
-                    <button type="button" class="btn-secondary-action" style="padding: 6px 12px; font-size: 12px;" onclick="adicionarCampoConcorrente()">+ Adicionar Concorrente</button>
-                <button type="submit" class="btn-primary-action">Gravar Requisição no Oracle</button>
-            </form>
-        </div>
-
-        <!-- LISTAGEM / TABELA -->
-        <div class="panel-box">
-            <div class="panel-title">Operações e Requisições Ativas no Sistema</div>
-            <form action="{{ url_for('deletar_bloco_requisicao') }}" method="POST" onsubmit="return verificarEConfirmarExclusao();">
-                <button type="submit" class="btn-danger-action">🗑 Excluir Requisições Selecionadas</button>
-                <div class="table-responsive">
-                    <table class="custom-table">
-                        <thead>
-                            <tr>
-                                <th width="40"><input type="checkbox" id="selecionar_todos" class="chk-custom" onclick="marcarTodos(this)"></th>
-                                <th>ID</th>
-                                <th>Data Cadastro</th>
-                                <th>Código de Barras</th>
-                                <th>Cidade</th>
-                                <th>Status</th>
-                                <th>Dias</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                                                <tbody>
-                            {% for t in tarefas %}
-                            <tr>
-                                <td><input type="checkbox" name="usuarios_deletar[]" value="{{ t[0] }}" class="chk-custom chk_tarefa"></td>
-                                <td style="color: #64748b; font-weight: 500;">#{{ t[0] }}</td>
-                                <td>{{ t[8] }}</td>
-                                <td style="font-weight: 500;">{{ t[1] }}</td>
-                                <td>{{ t[2] }}</td>
-                                <td>
-                                    <span class="badge-status {% if t[3]|lower == 'pendente' %}pendente{% elif t[3]|lower == 'em andamento' %}andamento{% else %}concluida{% endif %}">
-                                        {{ t[3] }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if t[6]|int == 9999 or t[6] == '9999' %}
-                                        ∞ Indefinida
-                                    {% else %}
-                                        {{ t[5] }} {% if t[5]|int == 1 %}Dia{% else %}Dias{% endif %}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <!-- Mantém o modal trazendo os dados preenchidos da linha -->
-                                    <span class="action-link" onclick="abrirEdicao('{{ t[0] }}', '{{ t[1] }}', '{{ t[2] }}', '{{ t[6] }}', '{{ t[9] }}')">Editar</span>
-                                    
-                                    <!-- CORREÇÃO: Aponta para deletar_requisicao para você continuar no painel principal -->
-                                    <a href="{{ url_for('deletar_requisicao', id_alvo=t[0]) }}" onclick="return confirm('Tem certeza que deseja excluir esta requisição?');" class="action-link delete">Excluir</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                
+                <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                    <button type="button" class="btn-secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Processar Lote</button>
                 </div>
             </form>
         </div>
-
-        <!-- MODAL DE EDIÇÃO -->
-        <div id="modal-container-flutuante" class="modal-overlay" onclick="fecharEdicaoAoClicarFora(event)">
-            <div class="modal-content-box" onclick="event.stopPropagation()">
-                <div class="panel-title" style="color: #2563eb; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <span>Modificar Parâmetros da Requisição</span>
-                    <span style="cursor: pointer; font-size: 24px; color: #94a3b8; font-weight: 400;" onclick="fecharEdicao()">&times;</span>
-                </div>
-                <form action="/editar" method="POST">
-                    <input type="hidden" id="edit-id" name="id">
-                    <div style="margin-bottom: 15px;">
-                        <label class="form-label">Código de Barras</label>
-                        <input type="text" id="edit-codigo_barras" name="codigo_barras" class="form-control" required>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <label class="form-label">Cidade</label>
-                        <select id="edit-cidade" name="cidade" class="form-select">
-                            {% for cid in cidades_opcoes %}
-                                <option value="{{ cid }}">{{ cid }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <label class="form-label">Dias de Pesquisa</label>
-                        <select id="edit-dias_pesquisa" name="dias_pesquisa" class="form-select">
-                            <option value="1">1 Dia</option>
-                            <option value="3">3 Dias</option>
-                            <option value="7">7 Dias</option>
-                            <option value="15">15 Dias</option>
-                            <option value="30">30 Dias</option>
-                            <option value="9999">Indefinida</option>
-                        </select>
-                    </div>
-                    <div style="margin-bottom: 25px;">
-                        <label class="form-label">EANs Concorrentes Cadastrados</label>
-                        <input type="text" id="edit-concorrentes" name="eans_concorrentes_texto" class="form-control" placeholder="EANs separados por vírgula">
-                        <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modifique os códigos separando-os por vírgula se necessário.</span>
-                    </div>
-                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                        <button type="button" class="btn-secondary-action" style="padding: 12px 20px;" onclick="fecharEdicao()">Cancelar</button>
-                        <button type="submit" class="btn-primary-action" style="width: auto; padding: 12px 25px;">Salvar Alterações</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
-    <!-- SCRIPTS JAVASCRIPT -->
+    <!-- ================================================================= -->
+    <!-- SCRIPTS JAVASCRIPT DE INFRAESTRUTURA LOGICA                       -->
+    <!-- ================================================================= -->
     <script>
-        function marcarTodos(m) { 
-            var c = document.getElementsByClassName('chk_tarefa'); 
-            for (var i = 0; i < c.length; i++) c[i].checked = m.checked; 
+        function abrirModal(e){
+    document.getElementById(e).style.display = "flex";
+}
+
+function fecharModal(e){
+    document.getElementById(e).style.display = "none";
+}
+
+// Escuta o clique de qualquer botão de editar de forma segura, sem quebrar aspas
+document.addEventListener("DOMContentLoaded", function() {
+    document.body.addEventListener("click", function(e) {
+        // Verifica se o elemento clicado é o link de editar
+        const btnEditar = e.target.closest(".btn-editar-acao");
+        if (btnEditar) {
+            e.preventDefault();
+            
+            // Captura os dados armazenados de forma limpa e segura
+            const id = btnEditar.getAttribute("data-id");
+            const cb = btnEditar.getAttribute("data-cb");
+            const cidade = btnEditar.getAttribute("data-cidade");
+            const dias = btnEditar.getAttribute("data-dias");
+            const concorrentes = btnEditar.getAttribute("data-concorrentes");
+
+            // Preenche os campos do modal único
+            document.getElementById('edit_id').value = id;
+            document.getElementById('edit_cb').value = cb;
+            document.getElementById('edit_dias').value = (dias === '9999' || dias === '0') ? '' : dias;
+            document.getElementById('edit_concorrentes').value = concorrentes;
+            
+            // Seleciona a cidade correta no menu drop-down
+            const selectCidade = document.querySelector('#modalEditar select[name="cidade"]');
+            if (selectCidade) {
+                selectCidade.value = cidade;
+            }
+            
+            // Abre o modal
+            abrirModal('modalEditar');
         }
-        
-        function verificarEConfirmarExclusao() { 
-            var c = document.getElementsByClassName('chk_tarefa'); 
-            for (var i = 0; i < c.length; i++) { 
-                if (c[i].checked) return confirm("Deseja apagar permanentemente os itens selecionados?"); 
-            } 
-            alert("Selecione ao menos um registro!"); 
-            return false; 
-        }
-        
-        function adicionarCampoConcorrente() { 
-            var container = document.getElementById('container-concorrentes'); 
-            if (!container) return; 
-            var n = document.createElement('input'); 
-            n.type = 'text'; 
-            n.name = 'eans_concorrentes[]'; 
-            n.className = 'form-control'; 
-            n.placeholder = 'EAN Concorrente'; 
-            n.style.marginBottom = '8px'; 
-            container.appendChild(n); 
-        }
-        
-        function abrirEdicao(id, ean, cid, d, concorrentes) { 
-            document.getElementById('edit-id').value = id; 
-            document.getElementById('edit-codigo_barras').value = ean; 
-            document.getElementById('edit-cidade').value = cid; 
-            document.getElementById('edit-dias_pesquisa').value = d; 
-            document.getElementById('edit-concorrentes').value = concorrentes ? concorrentes : ''; 
-            document.getElementById('modal-container-flutuante').style.display = 'flex'; 
-        }
-        
-        function fecharEdicao() { 
-            document.getElementById('modal-container-flutuante').style.display = 'none'; 
-        }
-        
-        function fecharEdicaoAoClicarFora(e) { 
-            if (e.target.id === 'modal-container-flutuante') fecharEdicao(); 
-        }
+    });
+});
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const chkMestre = document.getElementById("checkboxMestre");
+            const chkIndividuais = document.querySelectorAll(".checkbox-individual");
+            const btnExcluir = document.getElementById("btnExcluirBloco");
+            const contador = document.getElementById("contadorSelecionados");
+
+            function atualizarBotao() {
+                const selecionados = document.querySelectorAll(".checkbox-individual:checked").length;
+                if (selecionados > 0) {
+                    contador.textContent = selecionados;
+                    btnExcluir.style.display = "inline-block";
+                } else {
+                    btnExcluir.style.display = "none";
+                }
+            }
+
+            if (chkMestre) {
+                chkMestre.addEventListener("change", function() {
+                    chkIndividuais.forEach(chk => {
+                        chk.checked = chkMestre.checked;
+                    });
+                    atualizarBotao();
+                });
+            }
+
+            chkIndividuais.forEach(chk => {
+                chk.addEventListener("change", function() {
+                    if (!this.checked) chkMestre.checked = false;
+                    if (document.querySelectorAll(".checkbox-individual:checked").length === chkIndividuais.length) {
+                        chkMestre.checked = true;
+                    }
+                    atualizarBotao();
+                });
+            });
+        });
+
+        window.onclick = function(e){
+            if (e.target.classList.contains("modal-backdrop")) {
+                e.target.style.display = "none";
+            }
+        };
     </script>
 
+    <!-- Fechamento oficial da validação da tela do painel do Jinja2/Flask -->
+    {% endif %}
+
+    <!-- Inicialização final dos ícones do Lucide -->
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
