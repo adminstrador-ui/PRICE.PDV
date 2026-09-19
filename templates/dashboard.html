@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Varejo</title>
+    
+    <!-- Chamada nativa e blindada do Flask para localizar o seu CSS em qualquer cenário -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+
+    <!-- Estilos de correção locais (não afetam o resto do sistema) -->
+    <style>
+        /* Resolve o problema do contêiner flex quebrado */
+        .app-container {
+            display: flex !important;
+            height: 100vh !important;
+            width: 100vw !important;
+        }
+
+        /* Garante que a área central não crie barras de rolagem duplicadas */
+        .main-content {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+        }
+
+        /* Cria o espaço elástico para o gráfico ocupar 100% da área útil restante */
+        .iframe-workspace-container {
+            flex: 1 !important;
+            width: 100% !important;
+            height: 100% !important;
+            position: relative !important;
+            background-color: #ffffff !important;
+        }
+
+        /* Estica o iframe pelas bordas do contêiner */
+        .iframe-workspace-container iframe {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- MENU LATERAL (Estrutura original das suas classes) -->
+        <aside class="sidebar">
+            <div class="top-part">
+                <div class="logo-area">
+                    <div class="logo-icon">P</div>
+                    <span class="logo-text">Price PDV</span>
+                </div>
+                <nav class="nav-menu">
+                    <a href="/?tela=painel" class="nav-item">Cadastro Requisições</a>
+                    <a href="/?tela=produtos" class="nav-item">Cadastro Produtos</a>
+                    <a href="/dashboard" class="nav-item active">Gráficos Varejo</a>
+                    {% if session.get('perfil_logado') == 'ADMIN' %}
+                        <a href="/?tela=usuarios" class="nav-item">Usuários</a>
+                    {% endif %}
+                </nav>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">US</div>
+                    <div class="user-details">
+                        <p>{{ session.get('usuario_logado', 'Usuário') }}</p>
+                        <span>Painel Ativo</span>
+                    </div>
+                </div>
+                <a href="/logout" class="logout-btn" title="Sair do Sistema">➡️</a>
+            </div>
+        </aside>
+
+        <!-- ÁREA CENTRAL DO CONTEÚDO -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Análise de Varejo</h1>
+                    <p>Monitoramento e inteligência competitiva de preços em tempo real</p>
+                </div>
+            </header>
+
+            <!-- CONTÊINER DO GRÁFICO EM TELA CHEIA -->
+            <div class="iframe-workspace-container">
+    <!-- Adicionamos os parâmetros de incorporação simples que o Google aceita sem HTTPS -->
+    <iframe 
+        src="https://google.com" 
+        allowfullscreen>
+    </iframe>
+</div>
+
+</body>
+</html>

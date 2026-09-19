@@ -13,8 +13,6 @@ import threading
 from flask import jsonify
 
 
-
-
 app = Flask(__name__)
 
 # ==============================================================================
@@ -1623,16 +1621,11 @@ def editar_produto_base():
             
     return redirect('/?tela=produtos')
 
-@app.route('/dashboard')
-def dashboard():
-    if "usuario_logado" not in session:
-        return redirect(url_for('index'))
-    return render_template('dashboard.html')
-
 
 if __name__ == "__main__":
+    # Desativa o cache de templates do Jinja2 para desenvolvimento
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     
-    # Voltamos ao padrão normal e estável que funciona na sua máquina
+    # Executa com o modo debug ativo
     app.run(host="0.0.0.0", port=5000, debug=True)

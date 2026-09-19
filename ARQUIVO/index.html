@@ -63,17 +63,12 @@
                 </div>
                 
                 <nav class="nav-menu">
-    <a href="/?tela=painel" class="nav-item {% if tela == 'painel' %}active{% endif %}">Cadastro Requisições</a>
-    <a href="/?tela=produtos" class="nav-item {% if tela == 'produtos' %}active{% endif %}">Cadastro Produtos</a>
-    
-    <!-- SEU NOVO BOTÃO DE GRÁFICOS AQUI -->
-    <a href="{{ url_for('dashboard') }}" class="nav-item">Dashboard</a>
-    
-    {% if session.get('perfil_logado') == 'ADMIN' %}
-        <a href="/?tela=usuarios" class="nav-item {% if tela == 'usuarios' %}active{% endif %}">Usuários</a>
-    {% endif %}
-</nav>
-
+                    <a href="/?tela=painel" class="nav-item {% if tela == 'painel' %}active{% endif %}">Cadastro Requisições</a>
+                    <a href="/?tela=produtos" class="nav-item {% if tela == 'produtos' %}active{% endif %}">Cadastro Produtos</a>
+                    {% if session.get('perfil_logado') == 'ADMIN' %}
+                        <a href="/?tela=usuarios" class="nav-item {% if tela == 'usuarios' %}active{% endif %}">Usuários</a>
+                    {% endif %}
+                </nav>
             </div>
             
             <div class="sidebar-footer" style="margin-top: auto; padding-top: 16px; border-top: 1px solid #f1f5f9;">

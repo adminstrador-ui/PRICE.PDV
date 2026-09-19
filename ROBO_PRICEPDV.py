@@ -63,7 +63,7 @@ def salvar_historico_banco(lista_itens):
         INSERT INTO historico_precos (
             dados_id, origem_busca, ean_retornado, produto_descricao,
             preco_unitario, preco_bruto, preco_final, valor_desconto, produto_ncm,
-            loja_nome, loja_cnpj, loja_endereco, loja_cidade, loja_bairro, data_coleta
+            loja_nome, loja_cnpj, loja_endereco, loja_cidade, loja_bairro, data_coleta, latitude, longitude
         ) VALUES %s
     """
     
@@ -83,7 +83,13 @@ def salvar_historico_banco(lista_itens):
             item.get("Endereço", "Não informado"),
             item["Cidade"][:100] if item["Cidade"] else "Não informado",
             item.get("Bairro", "Não informado")[:100],
-            item["Data"]
+            item.get("Data", time.strftime("%Y-%m-%d %H:%M:%S")),
+            # Mude as duas últimas linhas do seu print para ficarem assim:
+            float(item.get("latitude", 0) or 0),
+            float(item.get("longitude", 0) or 0)
+    
+
+
         )
         for item in lista_itens
     ]
@@ -212,6 +218,22 @@ def verificar_e_resolver_captcha():
 # ==============================================================================
 # SEÇÃO 4: INTEGRAÇÃO DA ROLAGEM, INTERCEPTADOR CDP E CLIQUES
 # ==============================================================================
+def fechar_popup_anuncio():
+    """Detecta a presença de pop-ups de anúncio iniciais do portal e os fecha com segurança."""
+    time.sleep(2)  # Tempo para o pop-up renderizar na tela
+    try:
+        # Tenta localizar o botão 'X' do modal por XPaths mapeados do portal
+        botoes_fechar = nav.find_elements(By.XPATH, "//button[@class='close'] | //*[contains(@class, 'modal')]//button[text()='×'] | //button[contains(@class, 'close-modal')]")
+        for btn in botoes_fechar:
+            if btn.is_displayed():
+                btn.click()
+                print("[ROBÔ] Pop-up de anúncio inicial localizado e fechado com sucesso!")
+                time.sleep(1)
+                return
+    except Exception as e_popup:
+        print(f"[AVISO] Falha ao tentar fechar pop-up (ou ele não apareceu): {e_popup}")
+
+
 def clicar_elemento(xpath, timeout_sleep=1.5):
     """Executa cliques seguros controlados por tempo."""
     time.sleep(timeout_sleep)
@@ -219,22 +241,32 @@ def clicar_elemento(xpath, timeout_sleep=1.5):
 
 
 def forcar_rolagem_pagina():
-    """Rola dinamicamente a página para carregar as requisições assíncronas."""
-    print("[ROBÔ] Rolando a página para forçar o carregamento de todos os resultados...")
-    ultima_altura = nav.execute_script("return document.body.scrollHeight")
-    for _ in range(10): 
-        nav.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2.5) 
-        try:
-            elemento_update = nav.find_element(By.XPATH, "//*[@id='updateResults']")
-            if elemento_update.is_displayed():
-                nav.execute_script("arguments.click();", elemento_update)
+    """Rola dinamicamente a página por coordenadas para forçar o carregamento via AJAX."""
+    print("[ROBÔ] Forçando rolagem de página para carregar todos os registros...")
+    
+    # Executa pequenas rolagens graduais para dar tempo ao AJAX de renderizar os cards
+    for i in range(1, 6):
+        nav.execute_script(f"window.scrollTo(0, (document.body.scrollHeight / 5) * {i});")
+        time.sleep(1.5)
+    
+    # Rola até o final definitivo
+    nav.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(2)
+    
+    # Tenta clicar no botão de carregar mais resultados (caso o portal exiba)
+    try:
+        # Seletor genérico para capturar o botão de paginação ou atualização do portal
+        elemento_update = nav.find_elements(By.XPATH, "//*[@id='updateResults'] | //button[contains(@class, 'btn-carregar')] | //*[contains(text(), 'Carregar mais')]")
+        for btn in elemento_update:
+            if btn.is_displayed():
+                nav.execute_script("arguments[0].click();", btn)
+                print("[ROBÔ] Botão 'Carregar mais resultados' acionado via JS.")
                 time.sleep(3)
-        except:
-            pass
-        nova_altura = nav.execute_script("return document.body.scrollHeight")
-        if nova_altura == ultima_altura: break 
-        ultima_altura = nova_altura
+                # Nova rolagem pós-clique para garantir captação
+                nav.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    except Exception as e_scroll:
+        print(f"[AVISO SCROLL] Sem botões adicionais para clicar: {e_scroll}")
+
 
 
 def processar_dados_interceptados(lista_api, r_rodada, ean_referencia, id_dados, cidade, codigo_barras_pai):
@@ -257,14 +289,13 @@ def processar_dados_interceptados(lista_api, r_rodada, ean_referencia, id_dados,
                     "Código de Barras Retornado": p.get('codProduto' if p.get('codProduto') else 'ean', ean_atual), "Produto": p.get('descricao', p.get('nome', p.get('nomeProduto', 'Não informado'))), 
                     "Preço Unitário": p.get('precoUnitario', v_final), "Preço Bruto": p.get('precoBruto', p.get('valorBruto', v_final)), "Preço Final": v_final, "Desconto": p.get('desconto', it.get('valorDesconto', 0.0)),
                     "NCM": p.get('ncm', 'Não informado'), "Loja": e.get('nomeEstabelecimento', e.get('razaoSocial', e.get('fantasia', 'Não informado'))), "CNPJ": e.get('cnpj', 'Não informado'), 
-                    "Endereço": e.get('endLogradouro', e.get('logradouro', 'Não informado')), "Cidade": e.get('municipio', cidade), "Bairro": e.get('bairro', 'Não informado'), "Data": time.strftime("%Y-%m-%d %H:%M:%S")
-                }
+                    "Endereço": e.get('endLogradouro', e.get('logradouro', 'Não informado')), "Cidade": e.get('municipio', cidade), "Bairro": e.get('bairro', 'Não informado'), "Data": time.strftime("%Y-%m-%d %H:%M:%S"), "latitude": e.get('latitude', 0), "longitude": e.get('longitude', 0)                }
                 r_rodada.append(item_dict)
             except Exception: 
                 try:
                     item_dict_fallback = {
                         "ID Pai (DADOS)": id_dados, "Origem Busca": "PAI" if str(ean_atual) == str(codigo_barras_pai) else "CONCORRENTE", "Código de Barras Pesquisado": ean_atual, 
-                        "Produto": "Erro na leitura estrutural do item", "Preço Final": 0.0, "Loja": "Incompleto", "Data": time.strftime("%Y-%m-%d %H:%M:%S")
+                        "Produto": "Erro na leitura estrutural do item", "Preço Final": 0.0, "Loja": "Incompleto", "Data": time.strftime("%Y-%m-%d %H:%M:%S"), "latitude": 0, "longitude": 0
                     }
                     r_rodada.append(item_dict_fallback)
                 except: 
@@ -274,22 +305,37 @@ def processar_dados_interceptados(lista_api, r_rodada, ean_referencia, id_dados,
 from selenium.webdriver.common.action_chains import ActionChains  # Garanta que esta linha esteja no topo do código
 
 def fazer_pesquisa_ean(ean_codigo):
-    """Executa a limpeza rigorosa do campo de texto e digita o EAN com segurança."""
-    campo_busca = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
-    campo_busca.click()
-    
-    # Clique triplo para forçar a seleção de qualquer texto residual no campo
-    actions = ActionChains(nav)
-    actions.double_click(campo_busca).click(campo_busca).perform()
-    
-    campo_busca.clear()
-    campo_busca.send_keys(Keys.BACKSPACE * 20) # Margem extra de segurança apagando caracteres
-    time.sleep(0.5)
-    
-    campo_busca.send_keys(str(ean_codigo))
-    time.sleep(0.8) # Tempo para o front-end processar a string
-    campo_busca.send_keys(Keys.ENTER)
-    time.sleep(2)
+    """Executa a limpeza rigorosa do campo de texto e digita o EAN com segurança contra instabilidade."""
+    try:
+        # Aguarda o elemento de forma explícita
+        campo_busca = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+        campo_busca.click()
+        
+        # Clique triplo para forçar a seleção de qualquer texto residual no campo
+        actions = ActionChains(nav)
+        actions.double_click(campo_busca).click(campo_busca).perform()
+        
+        campo_busca.clear()
+        campo_busca.send_keys(Keys.BACKSPACE * 20)
+        time.sleep(0.5)
+        
+        campo_busca.send_keys(str(ean_codigo))
+        time.sleep(0.8)
+        campo_busca.send_keys(Keys.ENTER)
+        time.sleep(2)
+    except Exception as e_busca:
+        print(f"   [AVISO BUSCA] Campo instável, tentando recarregar o seletor para o EAN {ean_codigo}...")
+        # Fallback: Se o elemento quebrar na memória, tenta localizá-lo de forma direta e bater o ENTER por JavaScript
+        nav.get("https://precodahora.ba.gov.br")
+        time.sleep(4)
+        fechar_popup_anuncio()  # Garante que o banner não travou a busca de recuperação
+        campo_busca = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+        campo_busca.click()
+        campo_busca.clear()
+        campo_busca.send_keys(str(ean_codigo))
+        campo_busca.send_keys(Keys.ENTER)
+        time.sleep(2)
+
 
 # ==============================================================================
 # SEÇÃO 5: PREPARAÇÃO DA INSTÂNCIA DO CHROME WEBDRIVER
@@ -321,121 +367,162 @@ wait = WebDriverWait(nav, 15)
 contador_total_coletas = 0
 
 # ==============================================================================
-# SEÇÃO 6: CICLO OPERACIONAL CONTÍNUO (GERENCIADOR DE LOTES OTIMIZADO)
+# SEÇÃO 6: CICLO OPERACIONAL CONTÍNUO (GERENCIADOR DE LOTES POR CIDADE ATIVA)
 # ==============================================================================
 try:
-    # Variável de controle para rastrear a última localidade configurada no navegador
-    ultima_cidade_configurada = None
-
     while True:
-        pesquisas = executar_banco("SELECT ID AS id_dados, CIDADE AS cidade, CODIGO_BARRAS FROM DADOS WHERE UPPER(status) = 'PENDENTE'", ler=True)
+        # 1. Coleta a lista completa de tarefas pendentes ordenadas por localidade
+        pesquisas = executar_banco(
+            "SELECT ID AS id_dados, CIDADE AS cidade, CODIGO_BARRAS FROM DADOS WHERE UPPER(status) = 'PENDENTE' ORDER BY CIDADE, ID DESC", 
+            ler=True
+        )
+        
         if not pesquisas:
-            print("[AVISO] Nenhum registro PENDENTE encontrado. Aguardando 10 minutos...")
+            print("[AVISO] Nenhum registro PENDENTE encontrado. Aguardando 3 minutos...")
             time.sleep(600)
             continue
 
-        print(f"[ROBÔ] Encontrados registros pendentes. Iniciando lote de segurança (Máximo 8)...")
-        contador_ciclo_atual = 0
+        # 2. Transforma os dados em um DataFrame temporário para agrupar facilmente por cidade
+        df_lote = pd.DataFrame(pesquisas)
+        cidades_unicas = df_lote['cidade'].unique()
+        
+        print(f"[⚡ INTELIGÊNCIA] Iniciando ciclo massivo. Encontradas {len(cidades_unicas)} cidades diferentes para processar.")
 
-        for item in pesquisas:
-            if contador_ciclo_atual >= 8: break
-            ID_DADOS, CIDADE, CODIGO_BARRAS = item["id_dados"], item["cidade"], item["codigo_barras"]
-            print(f"\n=========================================\n[ROBÔ] [{contador_ciclo_atual + 1}/8] Iniciando: {CIDADE} | EAN PAI: {CODIGO_BARRAS}\n=========================================")
-            r_rodada = []
+        # 3. ROBUSTEZ: Loop focado estritamente na Cidade ativa da rodada
+        for cidade_ativa in cidades_unicas:
+            print(f"\n📍 [LOCALIDADE CENTRAL] Iniciando processamento em massa para a cidade: {cidade_ativa}")
+            
+            # Filtra apenas as tarefas pertencentes a esta cidade específica no lote atual
+            tarefas_da_cidade = df_lote[df_lote['cidade'] == cidade_ativa].to_dict('records')
+            print(f"📋 Encontrados {len(tarefas_da_cidade)} EANs principais pendentes em {cidade_ativa}.")
 
             try:
-                # 🚀 OTIMIZAÇÃO CRÍTICA DE CIDADE:
-                # Só recarrega a página e redefine o município se ele for DIFERENTE do último configurado
-                if CIDADE != ultima_cidade_configurada:
-                    print(f"[LOCALIDADE] Cidade mudou para {CIDADE} (ou é o primeiro item). Configurando filtros...")
-                    nav.get("https://precodahora.ba.gov.br")
-                    time.sleep(4)
-                    
-                    # Fluxo de cliques baseados nos seletores XPath reais mapeados da SEFAZ BA
-                    clicar_elemento("/html/body/header/div/div/nav/div/a/i")
-                    clicar_elemento("//*[@id='sidebar-filtros-home']/div/div/div/button")
-                    clicar_elemento("//*[@id='add-center']", timeout_sleep=2.5)
-                    
-                    input_cidade = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='modal-regions']//input[@type='text']")))
-                    input_cidade.click()
-                    input_cidade.send_keys(CIDADE)
-                    time.sleep(3)
-                    
-                    try: 
-                        wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='sugerir-municipios']/ul/li[2]"))).click()
-                    except: 
-                        wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='sugerir-municipios']/ul/li"))).click()
-                        
-                    clicar_elemento("//*[@id='aplicar']")
-                    time.sleep(4)
-                    
-                    # Atualiza a memória com a cidade que acabou de ser configurada com sucesso
-                    ultima_cidade_configurada = CIDADE
-                else:
-                    print(f"[⚡ OTIMIZAÇÃO] Mantendo a mesma cidade ({CIDADE}). Pulando configuração de filtros e mudando apenas o EAN!")
+                # 🚀 PASSO 1: Configura a geolocalização no portal UMA ÚNICA VEZ para toda a cidade
+                print(f"[FILTRO SEFAZ] Acessando o portal e travando a geolocalização para {cidade_ativa}...")
+                nav.get("https://precodahora.ba.gov.br")
+                time.sleep(4)
 
-                # --- PRODUTO PAI ---
-                print(f"[PAI] Buscando: {CODIGO_BARRAS}")
-                nav.execute_script(f"window.current_ean_target = '{CODIGO_BARRAS}'; window.dados_precos = [];")
-                fazer_pesquisa_ean(CODIGO_BARRAS)
+                # 🔒 ADICIONE ESTA LINHA AQUI: Remove o anúncio antes de tentar clicar nos filtros
+                fechar_popup_anuncio()
+                
+                # Fluxo de cliques baseados nos seletores XPath reais mapeados da SEFAZ BA
+                clicar_elemento("/html/body/header/div/div/nav/div/a/i")
+                clicar_elemento("//*[@id='sidebar-filtros-home']/div/div/div/button")
+                clicar_elemento("//*[@id='add-center']", timeout_sleep=2.5)
+                
+                input_cidade = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='modal-regions']//input[@type='text']")))
+                input_cidade.click()
+                input_cidade.send_keys(cidade_ativa)
+
+                # Aguarda dinamicamente as sugestões aparecerem no mapa e clica na primeira opção disponível
+                elemento_sugestao = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='sugerir-municipios']//li")))
+                elemento_sugestao.click()
+                time.sleep(2)
 
                 
-                verificar_e_resolver_captcha()
-                forcar_rolagem_pagina()
-                lista_api_pai = nav.execute_script("return window.dados_precos;")
-                r_rodada = processar_dados_interceptados(lista_api_pai, r_rodada, CODIGO_BARRAS, ID_DADOS, CIDADE, CODIGO_BARRAS)
-
-                # --- PRODUTOS FILHOS CONCORRENTES ---
-                concorrentes = executar_banco('SELECT ean_concorrente FROM dados_concorrentes WHERE dados_id = %s', d=[ID_DADOS], ler=True)
-                for conc in concorrentes:
-                    ean_filho = conc.get("ean_concorrente") or conc.get("EAN_CONCORRENTE")
-                    if ean_filho:
-                        try:
-                            print(f"[CONCORRENTE] Buscando: {ean_filho}")
-                            nav.execute_script(f"window.current_ean_target = '{ean_filho}'; window.dados_precos = [];")
-                            try: 
-                                campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
-                            except:
-                                nav.get("https://precodahora.ba.gov.br")
-                                time.sleep(4)
-                                campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
-                            
-                            campo_filho.click()
-                            fazer_pesquisa_ean(ean_filho)
-                            
-                            verificar_e_resolver_captcha()
-                            forcar_rolagem_pagina()
-                            lista_api_filho = nav.execute_script("return window.dados_precos;")
-                            r_rodada = processar_dados_interceptados(lista_api_filho, r_rodada, ean_filho, ID_DADOS, CIDADE, CODIGO_BARRAS)
-                        except Exception as e_filho: 
-                            print(f"[AVISO] Erro no concorrente {ean_filho}: {e_filho}")
-
-                # --- PERSISTÊNCIA DOS DADOS COLETADOS ---
-                if r_rodada:
-                    print(f"[BANCO] Gravando {len(r_rodada)} novos registros no histórico...")
-                    salvar_historico_banco(r_rodada)
-                    executar_banco("UPDATE DADOS SET status = 'PROCESSADO' WHERE ID = %s", d=[ID_DADOS])
-                else:
-                    executar_banco("UPDATE DADOS SET status = 'AVISO_SEM_DADOS' WHERE ID = %s", d=[ID_DADOS])
-
-            except Exception as e:
-                print(f"[ERRO CRÍTICO] Falha ao processar ID {ID_DADOS}: {e}")
-                # Força o reset da memória de cidade em caso de falha crítica na navegação
-                # para obrigar o robô a reconfigurar o portal no próximo item por segurança.
-                ultima_cidade_configurada = None
                 try: 
-                    executar_banco("UPDATE DADOS SET status = 'ERRO' WHERE ID = %s", d=[ID_DADOS])
+                    wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='sugerir-municipios']/ul/li[2]"))).click()
                 except: 
-                    pass
-            finally:
-                nav.execute_script("window.dados_precos = [];")
+                    wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='sugerir-municipios']/ul/li"))).click()
+                    
+                clicar_elemento("//*[@id='aplicar']")
+                time.sleep(4)
+                
+            except Exception as e_config_cidade:
+                print(f"❌ [ERRO CRÍTICO] Falha ao configurar a localidade {cidade_ativa}. Detalhes: {str(e_config_cidade)}")
+                continue # Passa para a próxima cidade se a geolocalização falhar de início
 
-            contador_ciclo_atual += 1
-            contador_total_coletas += 1
+            # 🚀 PASSO 2: Varre todos os EANs da mesma cidade sem recarregar os filtros
+            for index, item in enumerate(tarefas_da_cidade):
+                ID_DADOS = item["id_dados"]
+                CODIGO_BARRAS = item["codigo_barras"]
+                
+                print(f"\n🔹 [{index + 1}/{len(tarefas_da_cidade)}] Processando item da fila | EAN PAI: {CODIGO_BARRAS}")
+                r_rodada = []
 
-        print(f"\n🛑 [SEGURANÇA] Ciclo de lote finalizado com {contador_ciclo_atual} raspagens.")
-        print(f"⏰ Entrando em pausa obrigatória de 10 minutos para proteção de rede...")
-        time.sleep(600)
+                try:
+                    # --- PRODUTO PAI ---
+                    print(f"   ↳ [PAI] Buscando: {CODIGO_BARRAS}")
+                    nav.execute_script(f"window.current_ean_target = '{CODIGO_BARRAS}'; window.dados_precos = [];")
+                    fazer_pesquisa_ean(CODIGO_BARRAS)
+                    
+                    verificar_e_resolver_captcha()
+                    forcar_rolagem_pagina()
+                    lista_api_pai = nav.execute_script("return window.dados_precos;")
+                    r_rodada = processar_dados_interceptados(lista_api_pai, r_rodada, CODIGO_BARRAS, ID_DADOS, cidade_ativa, CODIGO_BARRAS)
+
+                    # --- PRODUTOS FILHOS CONCORRENTES ---
+                    concorrentes = executar_banco('SELECT ean_concorrente FROM dados_concorrentes WHERE dados_id = %s', d=[ID_DADOS], ler=True)
+                    for conc in concorrentes:
+                        ean_filho = conc.get("ean_concorrente") or conc.get("EAN_CONCORRENTE")
+                        if ean_filho and ean_filho != "SEM_CONCORRENTES":
+                            try:
+                                print(f"   ↳ [CONCORRENTE] Buscando: {ean_filho}")
+                                nav.execute_script(f"window.current_ean_target = '{ean_filho}'; window.dados_precos = [];")
+                                
+                                # Captura ou força o retorno ao campo de busca caso a página mude de estado
+                                try: 
+                                    campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+                                except:
+                                    nav.get("https://precodahora.ba.gov.br")
+                                    time.sleep(4)
+
+                                                                    # Captura ou força o retorno ao campo de busca caso a página mude de estado
+                                try: 
+                                    campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+                                except:
+                                    nav.get("https://precodahora.ba.gov.br")
+                                    time.sleep(4)
+                                    
+                                    # 🔒 ADICIONE ESTA LINHA AQUI TAMBÉM: Remove o anúncio se a página resetou
+                                    fechar_popup_anuncio()
+                                    
+                                    campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+
+
+                                    campo_filho = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='fake-sbar'] | //input[@id='sbar']")))
+                                
+                                campo_filho.click()
+                                fazer_pesquisa_ean(ean_filho)
+                                
+                                verificar_e_resolver_captcha()
+                                forcar_rolagem_pagina()
+                                lista_api_filho = nav.execute_script("return window.dados_precos;")
+                                r_rodada = processar_dados_interceptados(lista_api_filho, r_rodada, ean_filho, ID_DADOS, cidade_ativa, CODIGO_BARRAS)
+                            except Exception as e_filho: 
+                                print(f"   [AVISO] Erro no concorrente {ean_filho}: {e_filho}")
+
+                    # --- PERSISTÊNCIA DOS DADOS COLETADOS ---
+                    if r_rodada:
+                        print(f"   💾 [BANCO] Gravando {len(r_rodada)} novos registros no histórico...")
+                        salvar_historico_banco(r_rodada)
+                        executar_banco("UPDATE DADOS SET status = 'PROCESSADO' WHERE ID = %s", d=[ID_DADOS])
+                    else:
+                        print("   ⚠️ Nenhuma precificação interceptada para este produto.")
+                        executar_banco("UPDATE DADOS SET status = 'AVISO_SEM_DADOS' WHERE ID = %s", d=[ID_DADOS])
+
+                except Exception as e_item:
+                    # Modificado para extrair o erro limpo e forçar restauração da aba
+                    erro_limpo = str(e_item).split("\n")[0]
+                    print(f"❌ [ERRO NO REGISTRO] Falha ao raspar ID {ID_DADOS}: {erro_limpo}")
+                    try: 
+                        executar_banco("UPDATE DADOS SET status = 'ERRO' WHERE ID = %s", d=[ID_DADOS])
+                    except: 
+                        pass
+                    # Força o robô a recarregar a home no próximo item por segurança
+                    nav.get("https://precodahora.ba.gov.br")
+                    time.sleep(3)
+
+                finally:
+                    nav.execute_script("window.dados_precos = [];")
+
+            print(f"✅ Concluído o lote da cidade: {cidade_ativa}. Avançando para a próxima...")
+            # Pequena pausa tática entre cidades para aliviar o consumo de proxy residencial
+            time.sleep(5)
+
+        print("\n🏁 [CICLO TOTAL FINALIZADO] Todos as cidades pendentes foram processadas.")
+        print("⏰ Entrando em pausa de segurança de 3 minutos antes da próxima varredura geral...")
+        time.sleep(180)
 
 except KeyboardInterrupt: 
     print("\n[AVISO] Processo interrompido manualmente pelo usuário.")

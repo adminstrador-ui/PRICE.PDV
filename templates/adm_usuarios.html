@@ -1,28 +1,305 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Price Compass - Operadores</title><link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><script src="https://unpkg.com"></script></head><body class="bg-gray-50 text-gray-900 font-sans antialiased"><div class="app-container"><aside class="sidebar"><div><div class="logo-area" style="display: flex; align-items: center; gap: 10px; padding-left: 4px; margin-bottom: 32px;">
-    <!-- O novo container do carrinho de supermercado -->
-    <div style="background: #2563eb; color: #ffffff; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
-        <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-    </div>
-    <!-- Nome do sistema estilizado -->
-    <span class="logo-text" style="font-size: 18px; font-weight: 700; color: #1e293b; letter-spacing: -0.03em;">Price<span style="color: #2563eb;">-PDV</span></span>
-</div>
-<nav class="nav-menu"><a href="/" class="nav-item">Requisições</a><a href="/admin/usuarios" class="nav-item active">Usuários</a></nav></div><div style="margin-top:auto;padding:16px 8px;border-top:1px solid #f1f5f9;width:100%"><table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0"><tr style="border:none"><td style="width:42px;padding:0;vertical-align:middle;border:none"><div style="width:38px;height:38px;background:#eff6ff;color:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:1px solid #dbeafe">AD</div></td><td style="padding:0 8px;vertical-align:middle;text-align:left;border:none;line-height:1.2"><p style="font-size:13px;font-weight:600;color:#1e293b;margin:0;white-space:nowrap">{{ session.get('usuario_logado', 'Admin') }}</p><span style="font-size:11px;color:#94a3b8;white-space:nowrap;display:block;margin-top:2px">Módulo de Gestão</span></td><td style="width:45px;padding:0;text-align:right;vertical-align:middle;border:none"><a href="/logout" style="color:#64748b;text-decoration:none;font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;display:inline-block;cursor:pointer" onmouseover="this.style.color='#ef4444';this.style.background='#fef2f2';this.style.borderColor='#fee2e2'" onmouseout="this.style.color='#64748b';this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">Sair</a></td></tr></table></div></aside><main class="main-content"><header class="top-header"><div class="header-title"><h1>Gestão de Usuários</h1><p>Controle de acessos, privilégios de perfil e limites volumétricos de requisição.</p></div></header>
-<div class="page-body" style="padding:40px;display:flex;flex-direction:column;gap:32px;width:100%"><div class="table-container" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:28px;box-shadow:0 1px 3px rgba(0,0,0,.05);width:100%"><div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:14px"><span style="font-size:18px">👤</span><strong style="font-size:16px;color:#1e293b">Cadastrar Novo Operador no Banco</strong></div><form action="/admin/usuarios" method="POST" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:end"><div><label class="form-label" style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Nome de Usuário</label><input type="text" name="usuario" placeholder="Ex: joao.silva" required class="form-input" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;outline:none"></div><div><label class="form-label" style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Senha de Acesso</label><input type="password" name="senha" placeholder="••••••••" required class="form-input" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;outline:none"></div><div><label class="form-label" style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Qtd. Máxima de Requisições</label><input type="number" name="limite_maximo" placeholder="Ex: 100" required class="form-input" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;outline:none"></div><div><label class="form-label" style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Perfil de Permissão</label><select name="perfil" class="form-select" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;outline:none;background:#fff;cursor:pointer"><option value="USER">USER (Operador Comum)</option><option value="ADMIN">ADMIN (Administrador Master)</option></select></div><div style="grid-column:span 4;margin-top:8px"><button type="submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:14px;font-weight:600;border-radius:8px;cursor:pointer">💾 Gravar Usuário no Sistema</button></div></form></div><div class="table-container" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);width:100%"><div class="table-header" style="padding:20px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📋</span><strong style="font-size:16px;color:#1e293b">Operadores Ativos e Volume de Consumo</strong></div><table class="custom-table" style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:14px 24px;width:80px">ID</th><th>Usuário</th><th>Nível Perfil</th><th>Uso de Volume (Cadastradas / Realizadas)</th><th>% Utilizado</th><th>Status</th><th style="text-align:right;padding-right:24px">Ações</th></tr></thead><tbody>
-{% for u in usuarios %}<tr><td style="color:#6b7280;font-weight:600;padding:16px 24px">#{{ u.ID }}</td><td style="font-weight:600;color:#111827">{{ u.NOME }}</td><td><span class="badge {% if u.NOME|lower == 'admin' %}badge-admin{% else %}badge-user{% endif %}" style="padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600">{{ u.PERFIL }}</span></td><td style="color:#4b5563;font-weight:500">{{ u.CADASTRADAS or 0 }} / <span style="color:#2563eb">{{ u.REALIZADAS or 0 }}</span> <span style="font-size:12px;color:#94a3b8;font-weight:400">(Máx: {{ u.LIMITE_MAXIMO or 0 }})</span></td><td>
-{% set cadastradas = u.CADASTRADAS or 0 %}{% set limite = u.LIMITE_MAXIMO or 1 %}{% set pct = (cadastradas / limite * 100) | round(1) %}{% set width_pct = pct if pct <= 100 else 100 %}<div style="display:flex;align-items:center;gap:10px;width:180px"><div style="background:#e2e8f0;border-radius:4px;height:8px;width:100%;overflow:hidden"><div style="width:{{ width_pct }}%;background:{% if pct >= 90 %}#ef4444{% elif pct >= 70 %}#f59e0b{% else %}#2563eb{% endif %};height:100%;border-radius:4px;transition:width .3s"></div></div><span style="font-size:13px;font-weight:600;color:#1e293b;min-width:45px;text-align:right">{{ pct }}%</span></div></td><td><span class="badge {% if u.ATIVO == 1 %}badge-concluido{% else %}badge-pendente{% endif %}" style="padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600">{% if u.ATIVO == 1 %}Ativo{% else %}Suspenso{% endif %}</span></td><td style="text-align:right;padding-right:24px;white-space:nowrap">
-{% if u.NOME|lower == 'admin' %}
-    <span style="color:#94a3b8;font-size:13px;font-style:italic">Conta Master Protegida</span>
-{% else %}
-    <!-- INÍCIO DO BLOCO DINÂMICO DE ALTERNÂNCIA (ATIVAR / SUSPENDER) -->
-    {% if u.ATIVO == 1 %}
-        <a href="/admin/suspender/{{ u.ID }}" style="color:#f59e0b;text-decoration:none;font-weight:600;margin-right:14px;font-size:14px">Suspender</a>
-    {% else %}
-        <a href="/admin/suspender/{{ u.ID }}" style="color:#16a34a;text-decoration:none;font-weight:600;margin-right:14px;font-size:14px">Ativar</a>
-    {% endif %}
-    <!-- FIM DO BLOCO DINÂMICO -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Compass - Operadores</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
 
-    <a href="/admin/deletar_usuario/{{ u.ID }}" style="color:#dc2626;text-decoration:none;font-weight:600;font-size:14px" onclick="return confirm('Deseja realmente remover este operador do banco?')">Excluir</a>
-{% endif %}
-</td></tr>
-{% else %}<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:48px">Nenhum operador localizado na base física.</td></tr>{% endfor %}
-</tbody></table></div></div></main></div><script>lucide.createIcons();</script></body></html>
+    <div class="app-container">
+        
+        <!-- ========================================== -->
+        <!--        BARRA LATERAL (SIDEBAR)             -->
+        <!-- ========================================== -->
+        <aside class="sidebar">
+            <div>
+                <div class="logo-area" style="display: flex; align-items: center; gap: 10px; padding-left: 4px; margin-bottom: 32px;">
+                    <div style="background: #2563eb; color: #ffffff; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
+                        <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="8" cy="21" r="1"/>
+                            <circle cx="19" cy="21" r="1"/>
+                            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text" style="font-size: 18px; font-weight: 700; color: #1e293b; letter-spacing: -0.03em;">
+                        Price<span style="color: #2563eb;">-PDV</span>
+                    </span>
+                </div>
+                
+                <nav class="nav-menu">
+                    <a href="/" class="nav-item">Requisições</a>
+                    <a href="/admin/usuarios" class="nav-item active">Usuários</a>
+                </nav>
+            </div>
+
+            <div style="margin-top: auto; padding: 16px 8px; border-top: 1px solid #f1f5f9; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
+                    <tr style="border: none;">
+                        <td style="width: 42px; padding: 0; vertical-align: middle; border: none;">
+                            <div style="width: 38px; height: 38px; background: #eff6ff; color: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; border: 1px solid #dbeafe;">
+                                AD
+                            </div>
+                        </td>
+                        <td style="padding: 0 8px; vertical-align: middle; text-align: left; border: none; line-height: 1.2;">
+                            <p style="font-size: 13px; font-weight: 600; color: #1e293b; margin: 0; white-space: nowrap;">
+                                {{ session.get('usuario_logado', 'Admin') }}
+                            </p>
+                            <span style="font-size: 11px; color: #94a3b8; white-space: nowrap; display: block; margin-top: 2px;">
+                                Módulo de Gestão
+                            </span>
+                        </td>
+                        <td style="width: 45px; padding: 0; text-align: right; vertical-align: middle; border: none;">
+                            <a href="/logout" style="color: #64748b; text-decoration: none; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; display: inline-block; cursor: pointer;" 
+                               onmouseover="this.style.color='#ef4444';this.style.background='#fef2f2';this.style.borderColor='#fee2e2'" 
+                               onmouseout="this.style.color='#64748b';this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">
+                                Sair
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </aside>
+
+        <!-- CONTAINER DO CONTEÚDO PRINCIPAL -->
+        <main class="main-content">
+            <header class="top-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="padding: 24px;">
+    <!-- CABEÇALHO DO MÓDULO -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <h1 style="margin: 0; font-size: 24px; color: #0f172a; font-weight: 700;">Gestão de Usuários</h1>
+            <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">Controle de acessos, privilégios de perfil e limites volumétricos de requisição.</p>
+        </div>
+        <<button onclick="document.getElementById('modalCadastrarUsuario').style.display = 'flex'" class="btn-primary" style="padding: 10px 18px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; background: #2563eb; color: #fff; border: none;">
+    + Novo Usuário
+</button>
+
+    </div>
+
+    <!-- BOX RETRÁTIL: CADASTRO DE OPERADOR -->
+    <div id="containerFormUsuario" class="table-container" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,.05); width: 100%; display: none; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
+            <span style="font-size: 18px;">👤</span>
+            <strong style="font-size: 16px; color: #1e293b;">Cadastrar Novo Operador no Banco</strong>
+        </div>
+        
+        <form action="/admin/usuarios" method="POST" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: end;">
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Nome de Usuário</label>
+                <input type="text" name="usuario" placeholder="Ex: joao.silva" required class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Senha de Acesso</label>
+                <input type="password" name="senha" placeholder="••••••••" required class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">E-mail do Operador</label>
+                <input type="email" name="email" placeholder="Ex: operador@email.com" class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Qtd. Máxima de Requisições</label>
+                <input type="number" name="limite_maximo" placeholder="Ex: 100" required class="form-input" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div>
+                <label class="form-label" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Perfil de Permissão</label>
+                <select name="perfil" class="form-select" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; background: #fff; cursor: pointer;">
+                    <option value="USER">USER (Operador Comum)</option>
+                    <option value="ADMIN">ADMIN (Administrador Master)</option>
+                </select>
+            </div>
+            <div style="grid-column: span 5; margin-top: 8px;">
+                <button type="submit" class="btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; background: #2563eb; color: #fff; border: none;">
+                    💾 Gravar Usuário no Sistema
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- PAINEL DA TABELA -->
+    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f1f5f9;">
+            <strong style="font-size: 15px; color: #1e293b;">📋 Operadores Ativos e Volume de Consumo</strong>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <!-- ↕️ ADICIONADO ESPAÇAMENTO NAS THs PARA SEPARAR OS TÍTULOS -->
+                        <th style="padding: 16px 20px; width: 80px;">ID</th>
+                        <th style="padding: 16px 20px;">Usuário</th>
+                        <th style="padding: 16px 20px;">E-mail</th>
+                        <th style="padding: 16px 20px;">Nível Perfil</th>
+                        <th style="padding: 16px 20px;">Uso de Volume (Cadastradas / Realizadas)</th>
+                        <th style="padding: 16px 20px;">% Utilizado Do Limite</th>
+                        <th style="padding: 16px 20px;">Status</th>
+                        <th style="text-align: right; padding: 16px 24px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;">
+                        <td style="color: #6b7280; font-weight: 600; padding: 18px 20px;">#{{ u.ID }}</td>
+                        <td style="font-weight: 600; color: #111827; padding: 18px 20px;">{{ u.NOME }}</td>
+                        <td style="color: #4b5563; font-weight: 500; padding: 18px 20px;">{{ u.EMAIL }}</td>
+                        <td style="padding: 18px 20px;">
+                            <span class="badge {% if u.PERFIL == 'ADMIN' %}badge-admin{% else %}badge-user{% endif %}" style="padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                {{ u.PERFIL }}
+                            </span>
+                        </td>
+                        <td style="color: #4b5563; font-weight: 500; padding: 18px 20px; line-height: 1.5;">
+                            {{ u.CADASTRADAS or 0 }} / <span style="color: #2563eb;">{{ u.REALIZADAS or 0 }}</span> 
+                            <br>
+                            <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">(Máx: {{ u.LIMITE_MAXIMO or 0 }})</span>
+                        </td>
+                        <td style="padding: 18px 20px;">
+                            {% set cadastradas = u.CADASTRADAS or 0 %}
+                            {% set limite = u.LIMITE_MAXIMO or 1 %}
+                            {% set pct = (cadastradas / limite * 100) | round(1) %}
+                            {% set width_pct = pct if pct <= 100 else 100 %}
+                            <div style="display: flex; align-items: center; gap: 12px; width: 190px;">
+                                <div style="background: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; overflow: hidden;">
+                                    <div style="width: {{ width_pct }}%; background: {% if pct >= 90 %}#ef4444{% elif pct >= 70 %}#f59e0b{% else %}#2563eb{% endif %}; height: 100%; border-radius: 4px; transition: width .3s;"></div>
+                                </div>
+                                <span style="font-size: 13px; font-weight: 600; color: #1e293b; min-width: 45px; text-align: right;">{{ pct }}%</span>
+                            </div>
+                        </td>
+                        <td style="padding: 18px 20px;">
+                            <span class="badge {% if u.ATIVO == 1 %}badge-concluido{% else %}badge-pendente{% endif %}" style="padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                {% if u.ATIVO == 1 %}Ativo{% else %}Suspenso{% endif %}
+                            </span>
+                        </td>
+                        <!-- ↕️ BOTÕES COM MAIS DISTÂNCIAMENTO E BORDA SUAVE -->
+                        <td style="text-align: right; padding: 18px 24px; white-space: nowrap;">
+                            {% if u.NOME|lower == 'admin' %}
+                                <span style="color: #94a3b8; font-size: 13px; font-style: italic; padding-right: 8px;">Conta Master Protegida</span>
+                            {% else %}
+                                <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                                    <a href="#" onclick="event.preventDefault(); abrirModalEditarUsuario('{{ u.ID }}', '{{ u.NOME }}', '{{ u.EMAIL }}', '{{ u.LIMITE_MAXIMO }}', '{{ u.PERFIL }}')" class="btn-secondary" style="padding: 6px 12px; font-size: 12px; color: #2563eb; text-decoration: none; margin-right: 4px; border: 1px solid #cbd5e1; border-radius: 6px;">Editar</a>
+
+                                    
+                                    {% if u.ATIVO == 1 %}
+                                        <a href="#" onclick="event.preventDefault(); fetch('/admin/suspender/{{ u.ID }}').then(() => { window.location.href='/admin/usuarios?tela=usuarios&sucesso=true'; });" class="btn-secondary" style="padding: 6px 14px; font-size: 12px; color: #f59e0b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 500; background: #fff;">Suspender</a>
+                                    {% else %}
+                                        <a href="#" onclick="event.preventDefault(); fetch('/admin/suspender/{{ u.ID }}').then(() => { window.location.href='/admin/usuarios?tela=usuarios&sucesso=true'; });" class="btn-secondary" style="padding: 6px 14px; font-size: 12px; color: #059669; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 500; background: #fff;">Ativar</a>
+                                    {% endif %}
+                                    
+                                    <a href="#" onclick="event.preventDefault(); if(confirm('Deseja realmente excluir este usuário?')) { fetch('/admin/deletar_usuario/{{ u.ID }}').then(() => { window.location.href='/admin/usuarios?tela=usuarios&sucesso=true'; }); }" class="btn-secondary" style="padding: 6px 14px; font-size: 12px; color: #ef4444; text-decoration: none; border: 1px solid #fecaca; background: #fef2f2; border-radius: 8px; font-weight: 500;">Excluir</a>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ... Fim da tabela de usuários anterior ... -->
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 1. MODAL FLUTUANTE: CADASTRAR USUÁRIO     -->
+<!-- ========================================== -->
+<div id="modalCadastrarUsuario" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+    <!-- ... Resto do código do modal de cadastro ... -->
+</div>
+
+
+<!-- ========================================== -->
+<!--     MODAL FLUTUANTE: EDITAR OPERADOR       -->
+<!-- ========================================== -->
+<div id="modalEditarUsuario" style="display: none !important; position: fixed !important; z-index: 99999 !important; left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; background-color: rgba(0, 0, 0, 0.5) !important; align-items: center !important; justify-content: center !important;">
+    <div style="background-color: #ffffff !important; border-radius: 12px !important; width: 420px !important; padding: 24px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important; box-sizing: border-box !important;">
+        <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important; border-bottom: 1px solid #e2e8f0 !important; padding-bottom: 12px !important;">
+            <h3 style="margin: 0 !important; font-size: 16px !important; color: #1e293b !important; font-weight: 700 !important;">📝 Editar Operador</h3>
+            <span onclick="fecharModalEditarUsuario()" style="cursor: pointer !important; font-size: 24px !important; color: #94a3b8 !important; line-height: 1 !important;">&times;</span>
+        </div>
+        
+        <!-- 🎯 FORMULÁRIO ENVELOPADO DIRECIONADO PARA O SEU APP.PY -->
+        <form action="/admin/editar_usuario" method="POST" autocomplete="off" style="display: flex !important; flex-direction: column !important; gap: 14px !important; width: 100% !important;">
+            
+            <!-- Campo oculto com name="id" para o Python saber qual ID atualizar -->
+            <input type="hidden" name="id" id="edit_user_id">
+            
+            <div style="display: flex !important; flex-direction: column !important; gap: 12px !important;">
+                <div>
+                    <label style="display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #475569 !important; margin-bottom: 6px !important;">Nome do Usuário *</label>
+                    <input type="text" name="usuario" id="edit_user_nome" required style="width: 100% !important; padding: 10px 14px !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; outline: none !important; box-sizing: border-box !important;">
+                </div>
+                <div>
+                    <label style="display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #475569 !important; margin-bottom: 6px !important;">E-mail do Operador</label>
+                    <input type="email" name="email" id="edit_user_email" style="width: 100% !important; padding: 10px 14px !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; outline: none !important; box-sizing: border-box !important;">
+                </div>
+                <div>
+                    <label style="display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #475569 !important; margin-bottom: 6px !important;">Nova Senha (Deixe vazio para manter)</label>
+                    <input type="password" name="senha" placeholder="••••••••" autocomplete="new-password" style="width: 100% !important; padding: 10px 14px !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; outline: none !important; box-sizing: border-box !important;">
+                </div>
+                <div>
+                    <label style="display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #475569 !important; margin-bottom: 6px !important;">Qtd. Máxima de Requisições *</label>
+                    <input type="number" name="limite_maximo" id="edit_user_limite" required style="width: 100% !important; padding: 10px 14px !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; outline: none !important; box-sizing: border-box !important;">
+                </div>
+                <div>
+                    <label style="display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #475569 !important; margin-bottom: 6px !important;">Perfil Administrativo *</label>
+                    <select name="perfil" id="edit_user_perfil" style="width: 100% !important; padding: 10px 14px !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; outline: none !important; background: white !important; box-sizing: border-box !important;">
+                        <option value="USER">USER (Operador Comum)</option>
+                        <option value="ADMIN">ADMIN (Administrador Master)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="display: flex !important; justify-content: flex-end !important; gap: 8px !important; margin-top: 20px !important; border-top: 1px solid #e2e8f0 !important; padding-top: 14px !important;">
+                <button type="button" onclick="fecharModalEditarUsuario()" style="padding: 10px 16px !important; border-radius: 8px !important; font-size: 14px !important; border: 1px solid #cbd5e1 !important; background: #fff !important; cursor: pointer !important;">Cancelar</button>
+                <button type="submit" style="padding: 10px 16px !important; border-radius: 8px !important; font-size: 14px !important; background: #2563eb !important; color: #fff !important; border: none !important; font-weight: 600 !important; cursor: pointer !important;">Salvar Alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!--     SCRIPTS JAVASCRIPT DE CONTROLE          -->
+<!-- ========================================== -->
+<script>
+function abrirModalEditarUsuario(id, nome, email, limite, perfil) {
+    // 🎯 CORREÇÃO CRÍTICA COM .replace(): 
+    // Remove o caractere '#' do ID vindo da tabela para que a rota Python (int(id_alvo)) consiga converter o valor com sucesso!
+    document.getElementById('edit_user_id').value = String(id).replace('#', '').trim();
+    
+    document.getElementById('edit_user_nome').value = nome;
+    document.getElementById('edit_user_email').value = (email === 'Não Informado' || email === '') ? '' : email;
+    document.getElementById('edit_user_limite').value = limite;
+    
+    const selectPerfil = document.getElementById('edit_user_perfil');
+    if (selectPerfil) {
+        const perfilLimpo = perfil.trim().toUpperCase();
+        for (let i = 0; i < selectPerfil.options.length; i++) {
+            if (selectPerfil.options[i].value.trim().toUpperCase() === perfilLimpo) {
+                selectPerfil.selectedIndex = i;
+                break;
+            }
+        }
+    }
+    
+    const modal = document.getElementById('modalEditarUsuario');
+    modal.style.setProperty('display', 'flex', 'important');
+}
+    
+    const modal = document.getElementById('modalEditarUsuario');
+    modal.style.setProperty('display', 'flex', 'important');
+}
+
+function fecharModalEditarUsuario() {
+    const modal = document.getElementById('modalEditarUsuario');
+    modal.style.setProperty('display', 'none', 'important');
+}
+</script>
+
+
+    </body>
+</html>
+
+
